@@ -4,3 +4,6 @@
 # Ignore editor files
 *.iml
 .idea
+
+# playground
+playground.go

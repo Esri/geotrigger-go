@@ -1,6 +1,8 @@
 package geotrigger_golang
 
-import "net/url"
+import (
+	"net/url"
+)
 
 type Device struct {
 	ClientId string
@@ -10,34 +12,46 @@ type Device struct {
 	ExpiresIn int
 }
 
-func (device *Device) RequestAccess() (err error) {
+type deviceRegisterResponse struct {
+	deviceJSON *deviceJSON `json:"device"`
+	deviceTokenJSON *deviceTokenJSON `json:"deviceToken"`
+}
+
+type tokenRefreshResponse struct {
+	accessToken string `json:"access_token`
+}
+
+type deviceTokenJSON struct {
+	accessToken string `json:"access_token"`
+	refreshToken string `json:"refresh_token"`
+	expiresIn int `json:"expires_in"`
+}
+
+type deviceJSON struct {
+	deviceId string
+}
+
+func (device *Device) RequestAccess() (error) {
 	// prep values
 	values := url.Values{}
 	values.Set("client_id", device.ClientId)
 	values.Set("f", "json")
 
 	// make request
-	resp, err := agoPost("sharing/oauth2/registerDevice", []byte(values.Encode()))
-	if err != nil { return err }
-	// parse response
-	data, err := parseJSONResponse(resp, "device registration")
-	if err != nil { return err }
-	// check for param errors returned by AGO
-	err = checkAgoError(data)
-	if err != nil { return err }
+	var deviceRegisterResponse deviceRegisterResponse
+	if err := agoPost("sharing/oauth2/registerDevice", []byte(values.Encode()), &deviceRegisterResponse); err != nil {
+		return err
+	}
 
-	// unpack device tokens & ids
-	deviceObject := data["device"].(map[string]interface{})
-	device.DeviceId = deviceObject["deviceId"].(string)
-	deviceToken := data["deviceToken"].(map[string]interface{})
-	device.AccessToken = deviceToken["access_token"].(string)
-	device.ExpiresIn = deviceToken["expires_in"].(int)
-	device.RefreshToken = deviceToken["refresh_token"].(string)
+	device.DeviceId = deviceRegisterResponse.deviceJSON.deviceId
+	device.AccessToken = deviceRegisterResponse.deviceTokenJSON.accessToken
+	device.RefreshToken = deviceRegisterResponse.deviceTokenJSON.refreshToken
+	device.ExpiresIn = deviceRegisterResponse.deviceTokenJSON.expiresIn
 
-	return
+	return nil
 }
 
-func (device *Device) Refresh() (err error) {
+func (device *Device) Refresh() (error) {
 	// prep values
 	values := url.Values{}
 	values.Set("client_id", device.ClientId)
@@ -46,21 +60,17 @@ func (device *Device) Refresh() (err error) {
 	values.Set("refresh_token", device.RefreshToken)
 
 	// make request
-	resp, err := agoPost("sharing/oauth2/token", []byte(values.Encode()))
-	if err != nil { return err }
-	// parse response
-	data, err := parseJSONResponse(resp, "token-refresh")
-	if err != nil { return err }
-	// check for param errors returned by AGO
-	err = checkAgoError(data)
-	if err != nil { return err }
+	var tokenRefreshResponse tokenRefreshResponse
+	if err := agoPost("sharing/oauth2/token", []byte(values.Encode()), &tokenRefreshResponse); err != nil {
+		return err
+	}
 
 	// store the new access token
-	device.AccessToken = data["access_token"].(string)
+	device.AccessToken = tokenRefreshResponse.accessToken
 
-	return
+	return nil
 }
 
-func (device *Device) GeotriggerAPIRequest(route string, data map[string]interface{}) (map[string]interface{}, error) {
-	return nil, nil
+func (device *Device) GeotriggerAPIRequest(route string, data map[string]interface{}, jsonContainer interface{}) (error) {
+	return nil
 }
