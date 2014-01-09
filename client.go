@@ -75,7 +75,7 @@ func (client *Client) Request(route string, params map[string]interface{}, respo
 // A helpful method (with explicit error messages) for unpacking values out of arbitrary JSON objects
 func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value interface{}) (err error) {
 	if jsonObject == nil {
-		return errors.New("Attempt to get a key rom a nil JSON object.")
+		return errors.New("Attempt to get value from a nil JSON object.")
 	}
 
 	if len(key) == 0 {
@@ -117,7 +117,7 @@ func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value
 		}
 	}()
 
-	// Time to set the new value being pointed to be the passed in interface.
+	// Time to set the new value being pointed to by the passed in interface.
 	// We know it's a pointer, so its value will be a reference to the value
 	// we are actually interested in changing.
 	rv := reflect.ValueOf(value)

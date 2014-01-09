@@ -20,7 +20,7 @@ type Session interface {
 	GeotriggerAPIRequest(route string, params map[string]interface{}, responseJSON interface{}) (error)
 }
 
-type agoErrorResponse struct {
+type errorResponse struct {
 	error *errorJSON
 }
 
@@ -69,7 +69,7 @@ func readResponseBody(resp *http.Response) (contents []byte, err error) {
 }
 
 func errorCheck(resp []byte) (error) {
-	var errorContainer agoErrorResponse
+	var errorContainer errorResponse
 	if err := json.Unmarshal(resp, &errorContainer); err != nil {
 		return nil // no recognized error present
 	}
@@ -81,7 +81,7 @@ func errorCheck(resp []byte) (error) {
 func parseJSONResponse(resp []byte, responseJSON interface{}) (error) {
 	t := reflect.TypeOf(responseJSON)
 	if t.Kind() != reflect.Ptr {
-		return errors.New(fmt.Sprintf("Provided responseJSON interface should be a pointer (to some struct)."))
+		return errors.New(fmt.Sprintf("Provided responseJSON interface should be a pointer (to struct or map)."))
 	}
 
 	if err := json.Unmarshal(resp, responseJSON); err != nil {

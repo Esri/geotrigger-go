@@ -18,7 +18,7 @@ type deviceRegisterResponse struct {
 }
 
 type tokenRefreshResponse struct {
-	accessToken string `json:"access_token`
+	accessToken string `json:"access_token"`
 }
 
 type deviceTokenJSON struct {
