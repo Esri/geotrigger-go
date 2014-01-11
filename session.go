@@ -48,6 +48,19 @@ func agoPost(route string, body []byte, responseJSON interface{}) (error) {
 	})
 }
 
+func geotriggerPost(route string, body []byte, responseJSON interface{}, accessToken string,
+	errHandler errorHandler) (error) {
+	req, err := http.NewRequest("POST", GEOTRIGGER_BASE_URL + route, bytes.NewReader(body))
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error creating GeotriggerPost for route %s. %s", route, err))
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+	req.Header.Set("Content-Type", "application/json")
+
+	return post(req, responseJSON, errHandler)
+}
+
 func post(req *http.Request, responseJSON interface{}, errHandler errorHandler) (error) {
 	path := req.URL.Path
 	resp, err := http.DefaultClient.Do(req)
