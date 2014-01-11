@@ -18,9 +18,13 @@ type Client struct {
 // then the returned client pointer has been successfully inflated and is ready for use.
 // Otherwise, the error will contain information about what went wrong.
 func NewDeviceClient(clientId string) (*Client, chan error) {
+	refreshStatusChecks := make(chan *refreshStatusCheck)
 	device := &Device {
 		clientId: clientId,
+		refreshStatusChecks: refreshStatusChecks,
 	}
+
+	go device.manageTokenConcurrency()
 
 	return getTokens(device)
 }
