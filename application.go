@@ -11,6 +11,7 @@ func (application *Application) RequestAccess() (err error) {
 	return
 }
 
-func (application *Application) GeotriggerAPIRequest(route string, data map[string]interface{}, responseJSON interface{}) (error) {
+func (application *Application) GeotriggerAPIRequest(route string, params map[string]interface{},
+	responseJSON interface{}) (error) {
 	return nil
 }

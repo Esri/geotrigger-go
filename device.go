@@ -2,6 +2,9 @@ package geotrigger_golang
 
 import (
 	"net/url"
+	"encoding/json"
+	"errors"
+	"fmt"
 )
 
 type Device struct {
@@ -71,6 +74,27 @@ func (device *Device) Refresh() (error) {
 	return nil
 }
 
-func (device *Device) GeotriggerAPIRequest(route string, data map[string]interface{}, jsonContainer interface{}) (error) {
-	return nil
+func (device *Device) GeotriggerAPIRequest(route string, params map[string]interface{},
+	responseJSON interface{}) (error) {
+	payload, err := json.Marshal(params)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error while marshaling params into JSON. %s", err))
+	}
+
+	// declare func first, so it can be called from within own definition
+	var errorHandlerFunc errorHandler
+	errorHandlerFunc = func(errResponse *ErrorResponse) error {
+		if errResponse.Error.Code == 498 {
+			if err = device.Refresh(); err == nil {
+				return geotriggerPost(route, payload, responseJSON, device.AccessToken, errorHandlerFunc)
+			} else {
+				return err
+			}
+		} else {
+			return errors.New(fmt.Sprintf("Error from Geotrigger Service, code: %d. Message: %s",
+				errResponse.Error.Code, errResponse.Error.Message))
+		}
+	}
+
+	return geotriggerPost(route, payload, responseJSON, device.AccessToken, errorHandlerFunc)
 }

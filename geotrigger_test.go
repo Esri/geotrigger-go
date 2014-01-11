@@ -28,7 +28,7 @@ func Patch(destination, v interface{}) (Restorer, error) {
 		return nil, errors.New("Bad destination, please provide a pointer.")
 	}
 
-	// we know it's a pointer, so get the type of value being pointed to
+	// we know destination is a pointer, so get the type of value being pointed to
 	destType = destType.Elem()
 	// compare that type to the type of v
 	providedType := reflect.TypeOf(v)
@@ -37,9 +37,8 @@ func Patch(destination, v interface{}) (Restorer, error) {
 			providedType, destType))
 	}
 
-	// we know destination is a pointer, let's get the value being pointed to
+	// get the value being pointed to
 	destValue := reflect.ValueOf(destination).Elem()
-
 	// reflect.New creates a new pointer value to provided type, elem gets the pointed to value again
 	oldValue := reflect.New(destType).Elem()
 	// we then set that value to the current destination value to hold onto it
@@ -87,20 +86,20 @@ func TestHttpStuff(t *testing.T) {
 	}))
 	defer ts.Close()
 	// set the geotrigger base url to the url of the test server
-	gtUrlRestore, err := Patch(&GEOTRIGGER_BASE_URL, ts.URL)
+	gtUrlRestorer, err := Patch(&GEOTRIGGER_BASE_URL, ts.URL)
 	if err != nil {
 		fmt.Printf("Error test during setup: %s", err)
 		return
 	}
 	// after this test (and all sub-tests) complete, set the base url back to original value
-	defer gtUrlRestore.Restore()
+	defer gtUrlRestorer.Restore()
 	// do the same for the AGO base url
-	agoUrlRestore, err := Patch(&AGO_BASE_URL, ts.URL)
+	agoUrlRestorer, err := Patch(&AGO_BASE_URL, ts.URL)
 	if err != nil {
 		fmt.Printf("Error test during setup: %s", err)
 		return
 	}
-	defer agoUrlRestore.Restore()
+	defer agoUrlRestorer.Restore()
 
 	// now run all the tests!
 	testDeviceRegisterFail(t, &response)
