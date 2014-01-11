@@ -7,7 +7,7 @@ import (
 )
 
 // The client struct type. Has one, un-exported field for a session that handles
-// auth for you. Make API requests with the "request" method. This is the type
+// auth for you. Make API requests with the "Request" method. This is the type
 // you should use directly for interacting with the geotrigger API.
 type Client struct {
 	session Session
@@ -99,7 +99,7 @@ func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value
 	// compare that type to the type pulled from the JSON
 	actualType := reflect.TypeOf(jsonVal)
 	if actualType != expectedType {
-		return errors.New(fmt.Sprintf("Provided reference to value of type %s did not match actual type: (%s).",
+		return errors.New(fmt.Sprintf("Provided reference to value of type %s did not match actual type: %s.",
 			expectedType, actualType))
 	}
 

@@ -12,23 +12,23 @@ type Device struct {
 	ExpiresIn int
 }
 
-type deviceRegisterResponse struct {
-	deviceJSON *deviceJSON `json:"device"`
-	deviceTokenJSON *deviceTokenJSON `json:"deviceToken"`
+type DeviceRegisterResponse struct {
+	DeviceJSON DeviceJSON `json:"device"`
+	DeviceTokenJSON DeviceTokenJSON `json:"deviceToken"`
 }
 
-type tokenRefreshResponse struct {
-	accessToken string `json:"access_token"`
+type TokenRefreshResponse struct {
+	AccessToken string `json:"access_token"`
 }
 
-type deviceTokenJSON struct {
-	accessToken string `json:"access_token"`
-	refreshToken string `json:"refresh_token"`
-	expiresIn int `json:"expires_in"`
+type DeviceTokenJSON struct {
+	AccessToken string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn int `json:"expires_in"`
 }
 
-type deviceJSON struct {
-	deviceId string
+type DeviceJSON struct {
+	DeviceId string `json:"deviceId"`
 }
 
 func (device *Device) RequestAccess() (error) {
@@ -38,15 +38,15 @@ func (device *Device) RequestAccess() (error) {
 	values.Set("f", "json")
 
 	// make request
-	var deviceRegisterResponse deviceRegisterResponse
-	if err := agoPost("sharing/oauth2/registerDevice", []byte(values.Encode()), &deviceRegisterResponse); err != nil {
+	var deviceRegisterResponse DeviceRegisterResponse
+	if err := agoPost(AGO_TOKEN_ROUTE, []byte(values.Encode()), &deviceRegisterResponse); err != nil {
 		return err
 	}
 
-	device.DeviceId = deviceRegisterResponse.deviceJSON.deviceId
-	device.AccessToken = deviceRegisterResponse.deviceTokenJSON.accessToken
-	device.RefreshToken = deviceRegisterResponse.deviceTokenJSON.refreshToken
-	device.ExpiresIn = deviceRegisterResponse.deviceTokenJSON.expiresIn
+	device.DeviceId = deviceRegisterResponse.DeviceJSON.DeviceId
+	device.AccessToken = deviceRegisterResponse.DeviceTokenJSON.AccessToken
+	device.RefreshToken = deviceRegisterResponse.DeviceTokenJSON.RefreshToken
+	device.ExpiresIn = deviceRegisterResponse.DeviceTokenJSON.ExpiresIn
 
 	return nil
 }
@@ -60,13 +60,13 @@ func (device *Device) Refresh() (error) {
 	values.Set("refresh_token", device.RefreshToken)
 
 	// make request
-	var tokenRefreshResponse tokenRefreshResponse
-	if err := agoPost("sharing/oauth2/token", []byte(values.Encode()), &tokenRefreshResponse); err != nil {
+	var tokenRefreshResponse TokenRefreshResponse
+	if err := agoPost(AGO_REGISTER_ROUTE, []byte(values.Encode()), &tokenRefreshResponse); err != nil {
 		return err
 	}
 
 	// store the new access token
-	device.AccessToken = tokenRefreshResponse.accessToken
+	device.AccessToken = tokenRefreshResponse.AccessToken
 
 	return nil
 }

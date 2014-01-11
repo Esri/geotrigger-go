@@ -10,23 +10,27 @@ import (
 	"reflect"
 )
 
-const GEOTRIGGER_BASE_URL = "https://geotrigger.arcgis.com/"
-const AGO_BASE_URL = "https://www.arcgis.com/"
-const AGO_TOKEN_ROUTE = "sharing/oauth2/token"
-const AGO_REGISTER_ROUTE = "sharing/oauth2/registerDevice"
+// The following are vars so that they can be changed by tests
+var (
+	GEOTRIGGER_BASE_URL = "https://geotrigger.arcgis.com"
+	AGO_BASE_URL = "https://www.arcgis.com"
+)
+
+const AGO_TOKEN_ROUTE = "/sharing/oauth2/token"
+const AGO_REGISTER_ROUTE = "/sharing/oauth2/registerDevice"
 
 type Session interface {
 	RequestAccess() (error)
 	GeotriggerAPIRequest(route string, params map[string]interface{}, responseJSON interface{}) (error)
 }
 
-type errorResponse struct {
-	error *errorJSON
+type ErrorResponse struct {
+	Error ErrorJSON `json:"error"`
 }
 
-type errorJSON struct {
-	code int
-	message string
+type ErrorJSON struct {
+	Code int `json:"code"`
+	Message string `json:"message"`
 }
 
 func agoPost(route string, body []byte, responseJSON interface{}) (error) {
@@ -69,13 +73,14 @@ func readResponseBody(resp *http.Response) (contents []byte, err error) {
 }
 
 func errorCheck(resp []byte) (error) {
-	var errorContainer errorResponse
+	var errorContainer ErrorResponse
 	if err := json.Unmarshal(resp, &errorContainer); err != nil {
+		fmt.Println(err)
 		return nil // no recognized error present
 	}
 
-	return errors.New(fmt.Sprintf("Error from AGO, code: %d. Message: %s", errorContainer.error.code,
-		errorContainer.error.message))
+	return errors.New(fmt.Sprintf("Error from AGO, code: %d. Message: %s", errorContainer.Error.Code,
+		errorContainer.Error.Message))
 }
 
 func parseJSONResponse(resp []byte, responseJSON interface{}) (error) {
