@@ -19,9 +19,11 @@ var (
 const ago_token_route = "/sharing/oauth2/token"
 const ago_register_route = "/sharing/oauth2/registerDevice"
 
-type Session interface {
-	RequestAccess() (error)
-	GeotriggerAPIRequest(route string, params map[string]interface{}, responseJSON interface{}) (error)
+type session interface {
+	requestAccess(chan error)
+	geotriggerAPIRequest(string, map[string]interface{}, interface{}, chan error)
+	getAccessToken() (string)
+	getRefreshToken() (string)
 }
 
 type ErrorResponse struct {
@@ -33,7 +35,7 @@ type ErrorJSON struct {
 	Message string `json:"message"`
 }
 
-type errorHandler func(*ErrorResponse)(error)
+type refreshHandler func()(string, error)
 
 func agoPost(route string, body []byte, responseJSON interface{}) (error) {
 	req, err := http.NewRequest("POST", ago_base_url + route, bytes.NewReader(body))
@@ -42,14 +44,13 @@ func agoPost(route string, body []byte, responseJSON interface{}) (error) {
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	return post(req, responseJSON, func(errResponse *ErrorResponse) error {
-		return errors.New(fmt.Sprintf("Error from AGO, code: %d. Message: %s", errResponse.Error.Code,
-			errResponse.Error.Message))
+	return post(req, responseJSON, func()(string, error) {
+		return "", errors.New("Expired token response from AGO. This is basically a 500.")
 	})
 }
 
 func geotriggerPost(route string, body []byte, responseJSON interface{}, accessToken string,
-	errHandler errorHandler) (error) {
+	refreshFunc refreshHandler) (error) {
 	req, err := http.NewRequest("POST", geotrigger_base_url + route, bytes.NewReader(body))
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error creating GeotriggerPost for route %s. %s", route, err))
@@ -58,10 +59,10 @@ func geotriggerPost(route string, body []byte, responseJSON interface{}, accessT
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
 	req.Header.Set("Content-Type", "application/json")
 
-	return post(req, responseJSON, errHandler)
+	return post(req, responseJSON, refreshFunc)
 }
 
-func post(req *http.Request, responseJSON interface{}, errHandler errorHandler) (error) {
+func post(req *http.Request, responseJSON interface{}, refreshFunc refreshHandler) (error) {
 	path := req.URL.Path
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -77,8 +78,18 @@ func post(req *http.Request, responseJSON interface{}, errHandler errorHandler) 
 		return errors.New(fmt.Sprintf("Could not read response body from %s. %s", path, err))
 	}
 
-	if errorResponse := errorCheck(contents); errorResponse != nil {
-		return errHandler(errorResponse)
+	if errResponse := errorCheck(contents); errResponse != nil {
+		if errResponse.Error.Code == 498 {
+			if token, err := refreshFunc(); err == nil {
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+				return post(req, responseJSON, refreshFunc)
+			} else {
+				return err
+			}
+		} else {
+			return errors.New(fmt.Sprintf("Error from %s, code: %d. Message: %s",
+				path, errResponse.Error.Code, errResponse.Error.Message))
+		}
 	}
 
 	return parseJSONResponse(contents, responseJSON)

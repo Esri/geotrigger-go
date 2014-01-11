@@ -107,15 +107,13 @@ func TestHttpStuff(t *testing.T) {
 
 func testDeviceRegisterFail(t *testing.T, response *[]byte) {
 	*response = []byte(`{"error":{"code":400,"message":"Unable to register device.","details":["'client_id' invalid"]}}`)
-	expectedErrorMessage := "Error from AGO, code: 400. Message: Unable to register device."
-	_, err := NewDeviceClient("bad_client_id")
-	if err == nil {
-		t.Error("Expected an error, but didn't get one!\n")
-	} else if err.Error() != expectedErrorMessage {
-		t.Error("Got an error (good!) but not the right error (bad!).\n")
-	} else {
-		fmt.Printf("SUCCESS, got expected error: %s\n", err)
-	}
+	expectedErrorMessage := "Error from /sharing/oauth2/registerDevice, code: 400. Message: Unable to register device."
+	_, errChan := NewDeviceClient("bad_client_id")
+
+	error := <- errChan
+
+	refute(t, error, nil)
+	expect(t, error.Error(), expectedErrorMessage)
 }
 
 func testDeviceRegisterSuccess(t *testing.T, responseByte *[]byte) {

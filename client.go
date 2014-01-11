@@ -10,66 +10,58 @@ import (
 // auth for you. Make API requests with the "Request" method. This is the type
 // you should use directly for interacting with the geotrigger API.
 type Client struct {
-	session Session
+	session session
 }
 
 // Create and register a new device associated with the provided client_id
-func NewDeviceClient(clientId string) (*Client, error) {
+// The channel that is returned will be written to once. If the read value is a nil,
+// then the returned client pointer has been successfully inflated and is ready for use.
+// Otherwise, the error will contain information about what went wrong.
+func NewDeviceClient(clientId string) (*Client, chan error) {
 	device := &Device {
-		ClientId: clientId,
+		clientId: clientId,
 	}
 
 	return getTokens(device)
 }
 
-// Pass in an existing device to be used with the client.
-// The device will be registered if access and refresh tokens are
-// not both present.
-func ExistingDeviceClient(device *Device) (*Client, error) {
-	if device == nil {
-		return nil, errors.New(fmt.Sprintf("Device cannot be nil."))
-	}
-
-	if len(device.AccessToken) == 0 ||  len(device.RefreshToken) == 0 {
-		// missing crucial token(s)!
-		return getTokens(device)
-	}
-
-	return &Client{session: device}, nil
-}
-
 // Create and register a new application associated with the provided client_id
 // and client_secret.
-func NewApplicationClient(clientId string, clientSecret string) (*Client, error) {
+// The channel that is returned will be written to once. If the read value is a nil,
+// then the returned client pointer has been successfully inflated and is ready for use.
+// Otherwise, the error will contain information about what went wrong.
+func NewApplicationClient(clientId string, clientSecret string) (*Client, chan error) {
 	application := &Application {
-		ClientId: clientId,
-		ClientSecret: clientSecret,
+		clientId: clientId,
+		clientSecret: clientSecret,
 	}
 
 	return getTokens(application)
 }
 
-// Pass in an existing application to be used with the client.
-// The application will request a token if no access token is present.
-func ExistingApplicationClient(application *Application) (*Client, error) {
-	if application == nil {
-		return nil, errors.New(fmt.Sprintf("Application cannot be nil."))
-	}
-
-	if len(application.AccessToken) == 0 {
-		// no token!
-		return getTokens(application)
-	}
-
-	return &Client{session: application}, nil
-}
-
 // The method to use for making requests!
 // `responseJSON` can be a struct modeling the expected JSON, or an arbitrary JSON map (map[string]interface{})
 // that can be used with the helper method `GetValueFromJSONObject`.
-// Make sure to check the error return! Errors should be explicit and helpful.
-func (client *Client) Request(route string, params map[string]interface{}, responseJSON interface{}) (error) {
-	return client.session.GeotriggerAPIRequest(route, params, responseJSON)
+// The channel that is returned will be written to once. If the read value is a nil,
+// then the provided responseJSON has been successfully inflated and is ready for use.
+// Otherwise, the error will contain information about what went wrong.
+func (client *Client) Request(route string, params map[string]interface{}, responseJSON interface{}) (chan error) {
+	errorChan := make(chan error)
+	go func() {
+		client.session.geotriggerAPIRequest(route, params, responseJSON, errorChan)
+	}()
+	return errorChan
+}
+
+// Get the access token currently in use by the client session.
+func (client *Client) GetAccessToken() (string) {
+	return client.session.getAccessToken()
+}
+
+// Get the refresh token currently in use by the client session. Returns the empty string for application
+// clients, as the application does not use a refresh token.
+func (client *Client) GetRefreshToken() (string) {
+	return client.session.getRefreshToken()
 }
 
 // A helpful method (with explicit error messages) for unpacking values out of arbitrary JSON objects
@@ -130,11 +122,13 @@ func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value
 }
 
 // Un-exported helper to just DRY up the client constructors above.
-func getTokens(session Session) (*Client, error) {
-	err := session.RequestAccess()
-	if err == nil {
-		return &Client{session: session}, nil
-	} else {
-		return nil, err
-	}
+func getTokens(session session) (*Client, chan error) {
+	errorChan := make(chan error)
+	client := &Client{session: session}
+
+	go func() {
+		session.requestAccess(errorChan)
+	}()
+
+	return client, errorChan
 }

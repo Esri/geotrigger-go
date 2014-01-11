@@ -8,11 +8,13 @@ import (
 )
 
 type Device struct {
-	ClientId string
-	DeviceId string
-	AccessToken string
-	RefreshToken string
-	ExpiresIn int
+	clientId string
+	deviceId string
+	accessToken string
+	refreshToken string
+	expiresIn int
+	refreshInProgress bool
+	shouldRefresh chan bool
 }
 
 type DeviceRegisterResponse struct {
@@ -34,33 +36,34 @@ type DeviceJSON struct {
 	DeviceId string `json:"deviceId"`
 }
 
-func (device *Device) RequestAccess() (error) {
+func (device *Device) requestAccess(errorChan chan error) {
 	// prep values
 	values := url.Values{}
-	values.Set("client_id", device.ClientId)
+	values.Set("client_id", device.clientId)
 	values.Set("f", "json")
 
 	// make request
 	var deviceRegisterResponse DeviceRegisterResponse
 	if err := agoPost(ago_register_route, []byte(values.Encode()), &deviceRegisterResponse); err != nil {
-		return err
+		errorChan <- err
+		return
 	}
 
-	device.DeviceId = deviceRegisterResponse.DeviceJSON.DeviceId
-	device.AccessToken = deviceRegisterResponse.DeviceTokenJSON.AccessToken
-	device.RefreshToken = deviceRegisterResponse.DeviceTokenJSON.RefreshToken
-	device.ExpiresIn = deviceRegisterResponse.DeviceTokenJSON.ExpiresIn
+	device.deviceId = deviceRegisterResponse.DeviceJSON.DeviceId
+	device.accessToken = deviceRegisterResponse.DeviceTokenJSON.AccessToken
+	device.refreshToken = deviceRegisterResponse.DeviceTokenJSON.RefreshToken
+	device.expiresIn = deviceRegisterResponse.DeviceTokenJSON.ExpiresIn
 
-	return nil
+	errorChan <- nil
 }
 
-func (device *Device) Refresh() (error) {
+func (device *Device) refresh() (error) {
 	// prep values
 	values := url.Values{}
-	values.Set("client_id", device.ClientId)
+	values.Set("client_id", device.clientId)
 	values.Set("f", "json")
 	values.Set("grant_type", "refresh_token")
-	values.Set("refresh_token", device.RefreshToken)
+	values.Set("refresh_token", device.refreshToken)
 
 	// make request
 	var tokenRefreshResponse TokenRefreshResponse
@@ -69,32 +72,35 @@ func (device *Device) Refresh() (error) {
 	}
 
 	// store the new access token
-	device.AccessToken = tokenRefreshResponse.AccessToken
+	device.accessToken = tokenRefreshResponse.AccessToken
 
 	return nil
 }
 
-func (device *Device) GeotriggerAPIRequest(route string, params map[string]interface{},
-	responseJSON interface{}) (error) {
+func (device *Device) geotriggerAPIRequest(route string, params map[string]interface{},
+	responseJSON interface{}, errorChan chan error) {
 	payload, err := json.Marshal(params)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error while marshaling params into JSON. %s", err))
+		errorChan <- errors.New(fmt.Sprintf("Error while marshaling params into JSON. %s", err))
+		return
 	}
 
-	// declare func first, so it can be passed around within own definition
-	var errorHandlerFunc errorHandler
-	errorHandlerFunc = func(errResponse *ErrorResponse) error {
-		if errResponse.Error.Code == 498 {
-			if err = device.Refresh(); err == nil {
-				return geotriggerPost(route, payload, responseJSON, device.AccessToken, errorHandlerFunc)
-			} else {
-				return err
-			}
+	var refreshFunc refreshHandler = func() (string, error) {
+		if err = device.refresh(); err == nil {
+			return device.accessToken, nil
 		} else {
-			return errors.New(fmt.Sprintf("Error from Geotrigger Service, code: %d. Message: %s",
-				errResponse.Error.Code, errResponse.Error.Message))
+			return "", err
 		}
 	}
 
-	return geotriggerPost(route, payload, responseJSON, device.AccessToken, errorHandlerFunc)
+	err = geotriggerPost(route, payload, responseJSON, device.accessToken, refreshFunc)
+	errorChan <- err
+}
+
+func (device *Device) getAccessToken() (string) {
+	return device.accessToken
+}
+
+func (device *Device) getRefreshToken() (string) {
+	return device.refreshToken
 }

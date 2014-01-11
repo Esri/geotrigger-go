@@ -1,17 +1,25 @@
 package geotrigger_golang
 
 type Application struct {
-	ClientId string
-	ClientSecret string
-	AccessToken string
-	ExpiresIn int
+	clientId string
+	clientSecret string
+	accessToken string
+	expiresIn int
 }
 
-func (application *Application) RequestAccess() (err error) {
+func (application *Application) requestAccess(errorChan chan error) {
 	return
 }
 
-func (application *Application) GeotriggerAPIRequest(route string, params map[string]interface{},
-	responseJSON interface{}) (error) {
-	return nil
+func (application *Application) geotriggerAPIRequest(route string, params map[string]interface{},
+	responseJSON interface{}, errorChan chan error) {
+	return
+}
+
+func (application *Application) getAccessToken() (string) {
+	return application.accessToken
+}
+
+func (application *Application) getRefreshToken() (string) {
+	return ""
 }
