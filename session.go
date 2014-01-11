@@ -12,12 +12,12 @@ import (
 
 // The following are vars so that they can be changed by tests
 var (
-	GEOTRIGGER_BASE_URL = "https://geotrigger.arcgis.com"
-	AGO_BASE_URL = "https://www.arcgis.com"
+	geotrigger_base_url = "https://geotrigger.arcgis.com"
+	ago_base_url = "https://www.arcgis.com"
 )
 
-const AGO_TOKEN_ROUTE = "/sharing/oauth2/token"
-const AGO_REGISTER_ROUTE = "/sharing/oauth2/registerDevice"
+const ago_token_route = "/sharing/oauth2/token"
+const ago_register_route = "/sharing/oauth2/registerDevice"
 
 type Session interface {
 	RequestAccess() (error)
@@ -36,7 +36,7 @@ type ErrorJSON struct {
 type errorHandler func(*ErrorResponse)(error)
 
 func agoPost(route string, body []byte, responseJSON interface{}) (error) {
-	req, err := http.NewRequest("POST", AGO_BASE_URL + route, bytes.NewReader(body))
+	req, err := http.NewRequest("POST", ago_base_url + route, bytes.NewReader(body))
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error creating AgoPost for route %s. %s", route, err))
 	}
@@ -50,7 +50,7 @@ func agoPost(route string, body []byte, responseJSON interface{}) (error) {
 
 func geotriggerPost(route string, body []byte, responseJSON interface{}, accessToken string,
 	errHandler errorHandler) (error) {
-	req, err := http.NewRequest("POST", GEOTRIGGER_BASE_URL + route, bytes.NewReader(body))
+	req, err := http.NewRequest("POST", geotrigger_base_url + route, bytes.NewReader(body))
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error creating GeotriggerPost for route %s. %s", route, err))
 	}

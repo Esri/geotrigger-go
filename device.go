@@ -42,7 +42,7 @@ func (device *Device) RequestAccess() (error) {
 
 	// make request
 	var deviceRegisterResponse DeviceRegisterResponse
-	if err := agoPost(AGO_TOKEN_ROUTE, []byte(values.Encode()), &deviceRegisterResponse); err != nil {
+	if err := agoPost(ago_register_route, []byte(values.Encode()), &deviceRegisterResponse); err != nil {
 		return err
 	}
 
@@ -64,7 +64,7 @@ func (device *Device) Refresh() (error) {
 
 	// make request
 	var tokenRefreshResponse TokenRefreshResponse
-	if err := agoPost(AGO_REGISTER_ROUTE, []byte(values.Encode()), &tokenRefreshResponse); err != nil {
+	if err := agoPost(ago_token_route, []byte(values.Encode()), &tokenRefreshResponse); err != nil {
 		return err
 	}
 
@@ -81,7 +81,7 @@ func (device *Device) GeotriggerAPIRequest(route string, params map[string]inter
 		return errors.New(fmt.Sprintf("Error while marshaling params into JSON. %s", err))
 	}
 
-	// declare func first, so it can be called from within own definition
+	// declare func first, so it can be passed around within own definition
 	var errorHandlerFunc errorHandler
 	errorHandlerFunc = func(errResponse *ErrorResponse) error {
 		if errResponse.Error.Code == 498 {

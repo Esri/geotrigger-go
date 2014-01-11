@@ -86,17 +86,17 @@ func TestHttpStuff(t *testing.T) {
 	}))
 	defer ts.Close()
 	// set the geotrigger base url to the url of the test server
-	gtUrlRestorer, err := Patch(&GEOTRIGGER_BASE_URL, ts.URL)
+	gtUrlRestorer, err := Patch(&geotrigger_base_url, ts.URL)
 	if err != nil {
-		fmt.Printf("Error test during setup: %s", err)
+		fmt.Printf("Error during test setup: %s", err)
 		return
 	}
 	// after this test (and all sub-tests) complete, set the base url back to original value
 	defer gtUrlRestorer.Restore()
 	// do the same for the AGO base url
-	agoUrlRestorer, err := Patch(&AGO_BASE_URL, ts.URL)
+	agoUrlRestorer, err := Patch(&ago_base_url, ts.URL)
 	if err != nil {
-		fmt.Printf("Error test during setup: %s", err)
+		fmt.Printf("Error during test setup: %s", err)
 		return
 	}
 	defer agoUrlRestorer.Restore()
