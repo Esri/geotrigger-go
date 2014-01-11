@@ -1,39 +1,39 @@
 package geotrigger_golang
 
 import (
-	"net/url"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 )
 
 type Device struct {
-	clientId string
-	deviceId string
-	accessToken string
-	refreshToken string
-	expiresIn int
+	clientId            string
+	deviceId            string
+	accessToken         string
+	refreshToken        string
+	expiresIn           int
 	refreshStatusChecks chan *refreshStatusCheck
 }
 
 const (
-	accessNeeded = iota
-	refreshNeeded = iota
+	accessNeeded    = iota
+	refreshNeeded   = iota
 	refreshComplete = iota
 )
 
 type refreshStatusCheck struct {
 	purpose int
-	resp chan *refreshStatusResponse
+	resp    chan *refreshStatusResponse
 }
 
 type refreshStatusResponse struct {
-	token string
+	token         string
 	isAccessToken bool
 }
 
 type DeviceRegisterResponse struct {
-	DeviceJSON DeviceJSON `json:"device"`
+	DeviceJSON      DeviceJSON      `json:"device"`
 	DeviceTokenJSON DeviceTokenJSON `json:"deviceToken"`
 }
 
@@ -42,9 +42,9 @@ type TokenRefreshResponse struct {
 }
 
 type DeviceTokenJSON struct {
-	AccessToken string `json:"access_token"`
+	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
-	ExpiresIn int `json:"expires_in"`
+	ExpiresIn    int    `json:"expires_in"`
 }
 
 type DeviceJSON struct {
@@ -76,7 +76,7 @@ func (device *Device) requestAccess(errorChan chan error) {
 	}()
 }
 
-func (device *Device) refresh() (error) {
+func (device *Device) refresh() error {
 	// prep values
 	values := url.Values{}
 	values.Set("client_id", device.clientId)
@@ -110,11 +110,11 @@ func (device *Device) geotriggerAPIRequest(route string, params map[string]inter
 	var refreshFunc refreshHandler = func() (string, error) {
 		statusCheck := &refreshStatusCheck{
 			purpose: refreshNeeded,
-			resp: make(chan *refreshStatusResponse),
+			resp:    make(chan *refreshStatusResponse),
 		}
 		device.refreshStatusChecks <- statusCheck
 
-		statusResp := <- statusCheck.resp
+		statusResp := <-statusCheck.resp
 
 		if statusResp.isAccessToken {
 			return statusResp.token, nil
@@ -124,7 +124,7 @@ func (device *Device) geotriggerAPIRequest(route string, params map[string]inter
 			accessToken := device.accessToken
 			refreshSuccess := &refreshStatusCheck{
 				purpose: refreshComplete,
-				resp: nil,
+				resp:    nil,
 			}
 			device.refreshStatusChecks <- refreshSuccess
 
@@ -136,11 +136,11 @@ func (device *Device) geotriggerAPIRequest(route string, params map[string]inter
 
 	statusCheck := &refreshStatusCheck{
 		purpose: accessNeeded,
-		resp: make(chan *refreshStatusResponse),
+		resp:    make(chan *refreshStatusResponse),
 	}
 	device.refreshStatusChecks <- statusCheck
 
-	statusResp := <- statusCheck.resp
+	statusResp := <-statusCheck.resp
 
 	err = geotriggerPost(route, payload, responseJSON, statusResp.token, refreshFunc)
 
@@ -149,11 +149,11 @@ func (device *Device) geotriggerAPIRequest(route string, params map[string]inter
 	}()
 }
 
-func (device *Device) getAccessToken() (string) {
+func (device *Device) getAccessToken() string {
 	return device.accessToken
 }
 
-func (device *Device) getRefreshToken() (string) {
+func (device *Device) getRefreshToken() string {
 	return device.refreshToken
 }
 
@@ -168,7 +168,7 @@ func (device *Device) manageTokenConcurrency() {
 			if !refreshInProgress {
 				fmt.Println("Warning: refresh completed when we assumed none were occurring.")
 			}
-			refreshInProgress = false;
+			refreshInProgress = false
 
 			// copy status checks to new slice for iterating
 			currentWaitingChecks := make([]*refreshStatusCheck, len(waitingChecks))
@@ -180,16 +180,16 @@ func (device *Device) manageTokenConcurrency() {
 			for _, waitingCheck := range currentWaitingChecks {
 				go func() {
 					waitingCheck.resp <- &refreshStatusResponse{
-						token: device.accessToken, isAccessToken: true,}
+						token: device.accessToken, isAccessToken: true}
 				}()
 			}
 		} else if statusCheck.purpose == refreshNeeded {
 			refreshInProgress = true
 			statusCheck.resp <- &refreshStatusResponse{
-				token: device.refreshToken, isAccessToken: false,}
+				token: device.refreshToken, isAccessToken: false}
 		} else if statusCheck.purpose == accessNeeded {
 			statusCheck.resp <- &refreshStatusResponse{
-				token: device.accessToken, isAccessToken: true,}
+				token: device.accessToken, isAccessToken: true}
 		}
 	}
 }

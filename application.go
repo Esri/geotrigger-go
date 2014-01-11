@@ -1,10 +1,10 @@
 package geotrigger_golang
 
 type Application struct {
-	clientId string
+	clientId     string
 	clientSecret string
-	accessToken string
-	expiresIn int
+	accessToken  string
+	expiresIn    int
 }
 
 func (application *Application) requestAccess(errorChan chan error) {
@@ -16,10 +16,10 @@ func (application *Application) geotriggerAPIRequest(route string, params map[st
 	return
 }
 
-func (application *Application) getAccessToken() (string) {
+func (application *Application) getAccessToken() string {
 	return application.accessToken
 }
 
-func (application *Application) getRefreshToken() (string) {
+func (application *Application) getRefreshToken() string {
 	return ""
 }

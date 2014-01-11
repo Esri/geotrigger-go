@@ -1,10 +1,10 @@
 package geotrigger_golang
 
 import (
-	"testing"
-	"net/http/httptest"
-	"net/http"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 )
 
 // A test that does some setup and then calls all the http related tests
@@ -42,16 +42,16 @@ func testDeviceRegisterFail(t *testing.T, response *[]byte) {
 	expectedErrorMessage := "Error from /sharing/oauth2/registerDevice, code: 400. Message: Unable to register device."
 	_, errChan := NewDeviceClient("bad_client_id")
 
-	error := <- errChan
+	error := <-errChan
 
 	refute(t, error, nil)
 	expect(t, error.Error(), expectedErrorMessage)
 }
 
 func testDeviceRegisterSuccess(t *testing.T, responseByte *[]byte) {
-//	geotriggerErrorResponse := []byte(
-//	`{"error":{"type":"invalidHeader","message":"invalid header or header value","headers":{"Authorization":
-//	[{"type":"invalid","message":"Invalid token."}]},"code":498}}`)
+	//	geotriggerErrorResponse := []byte(
+	//	`{"error":{"type":"invalidHeader","message":"invalid header or header value","headers":{"Authorization":
+	//	[{"type":"invalid","message":"Invalid token."}]},"code":498}}`)
 }
 
 func testSessionPostSuccess(t *testing.T) {

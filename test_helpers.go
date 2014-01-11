@@ -1,10 +1,10 @@
 package geotrigger_golang
 
 import (
-	"testing"
-	"reflect"
 	"errors"
 	"fmt"
+	"reflect"
+	"testing"
 )
 
 // Restorer holds a function that can be used

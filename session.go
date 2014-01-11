@@ -1,19 +1,19 @@
 package geotrigger_golang
 
 import (
-	"net/http"
 	"bytes"
-	"fmt"
-	"errors"
-	"io/ioutil"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"reflect"
 )
 
 // The following are vars so that they can be changed by tests
 var (
 	geotrigger_base_url = "https://geotrigger.arcgis.com"
-	ago_base_url = "https://www.arcgis.com"
+	ago_base_url        = "https://www.arcgis.com"
 )
 
 const ago_token_route = "/sharing/oauth2/token"
@@ -22,8 +22,8 @@ const ago_register_route = "/sharing/oauth2/registerDevice"
 type session interface {
 	requestAccess(chan error)
 	geotriggerAPIRequest(string, map[string]interface{}, interface{}, chan error)
-	getAccessToken() (string)
-	getRefreshToken() (string)
+	getAccessToken() string
+	getRefreshToken() string
 }
 
 type ErrorResponse struct {
@@ -31,27 +31,27 @@ type ErrorResponse struct {
 }
 
 type ErrorJSON struct {
-	Code int `json:"code"`
+	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
 
-type refreshHandler func()(string, error)
+type refreshHandler func() (string, error)
 
-func agoPost(route string, body []byte, responseJSON interface{}) (error) {
-	req, err := http.NewRequest("POST", ago_base_url + route, bytes.NewReader(body))
+func agoPost(route string, body []byte, responseJSON interface{}) error {
+	req, err := http.NewRequest("POST", ago_base_url+route, bytes.NewReader(body))
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error creating AgoPost for route %s. %s", route, err))
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	return post(req, responseJSON, func()(string, error) {
+	return post(req, responseJSON, func() (string, error) {
 		return "", errors.New("Expired token response from AGO. This is basically a 500.")
 	})
 }
 
 func geotriggerPost(route string, body []byte, responseJSON interface{}, accessToken string,
-	refreshFunc refreshHandler) (error) {
-	req, err := http.NewRequest("POST", geotrigger_base_url + route, bytes.NewReader(body))
+	refreshFunc refreshHandler) error {
+	req, err := http.NewRequest("POST", geotrigger_base_url+route, bytes.NewReader(body))
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error creating GeotriggerPost for route %s. %s", route, err))
 	}
@@ -62,7 +62,7 @@ func geotriggerPost(route string, body []byte, responseJSON interface{}, accessT
 	return post(req, responseJSON, refreshFunc)
 }
 
-func post(req *http.Request, responseJSON interface{}, refreshFunc refreshHandler) (error) {
+func post(req *http.Request, responseJSON interface{}, refreshFunc refreshHandler) error {
 	path := req.URL.Path
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -101,7 +101,7 @@ func readResponseBody(resp *http.Response) (contents []byte, err error) {
 	return
 }
 
-func errorCheck(resp []byte) (*ErrorResponse) {
+func errorCheck(resp []byte) *ErrorResponse {
 	var errorContainer ErrorResponse
 	if err := json.Unmarshal(resp, &errorContainer); err != nil {
 		return nil // no recognized error present
@@ -110,7 +110,7 @@ func errorCheck(resp []byte) (*ErrorResponse) {
 	return &errorContainer
 }
 
-func parseJSONResponse(resp []byte, responseJSON interface{}) (error) {
+func parseJSONResponse(resp []byte, responseJSON interface{}) error {
 	t := reflect.TypeOf(responseJSON)
 	if t.Kind() != reflect.Ptr {
 		return errors.New(fmt.Sprintf("Provided responseJSON interface should be a pointer (to struct or map)."))

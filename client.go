@@ -19,8 +19,8 @@ type Client struct {
 // Otherwise, the error will contain information about what went wrong.
 func NewDeviceClient(clientId string) (*Client, chan error) {
 	refreshStatusChecks := make(chan *refreshStatusCheck)
-	device := &Device {
-		clientId: clientId,
+	device := &Device{
+		clientId:            clientId,
 		refreshStatusChecks: refreshStatusChecks,
 	}
 
@@ -35,8 +35,8 @@ func NewDeviceClient(clientId string) (*Client, chan error) {
 // then the returned client pointer has been successfully inflated and is ready for use.
 // Otherwise, the error will contain information about what went wrong.
 func NewApplicationClient(clientId string, clientSecret string) (*Client, chan error) {
-	application := &Application {
-		clientId: clientId,
+	application := &Application{
+		clientId:     clientId,
 		clientSecret: clientSecret,
 	}
 
@@ -49,20 +49,20 @@ func NewApplicationClient(clientId string, clientSecret string) (*Client, chan e
 // The channel that is returned will be written to once. If the read value is a nil,
 // then the provided responseJSON has been successfully inflated and is ready for use.
 // Otherwise, the error will contain information about what went wrong.
-func (client *Client) Request(route string, params map[string]interface{}, responseJSON interface{}) (chan error) {
+func (client *Client) Request(route string, params map[string]interface{}, responseJSON interface{}) chan error {
 	errorChan := make(chan error)
 	go client.session.geotriggerAPIRequest(route, params, responseJSON, errorChan)
 	return errorChan
 }
 
 // Get the access token currently in use by the client session.
-func (client *Client) GetAccessToken() (string) {
+func (client *Client) GetAccessToken() string {
 	return client.session.getAccessToken()
 }
 
 // Get the refresh token currently in use by the client session. Returns the empty string for application
 // clients, as the application does not use a refresh token.
-func (client *Client) GetRefreshToken() (string) {
+func (client *Client) GetRefreshToken() string {
 	return client.session.getRefreshToken()
 }
 
