@@ -41,7 +41,7 @@ func Patch(destination, v interface{}) (Restorer, error) {
 	destValue := reflect.ValueOf(destination).Elem()
 
 	// reflect.New creates a new pointer value to provided type, elem gets the pointed to value again
-	oldValue := reflect.New(destValue.Type()).Elem()
+	oldValue := reflect.New(destType).Elem()
 	// we then set that value to the current destination value to hold onto it
 	oldValue.Set(destValue)
 
@@ -49,12 +49,12 @@ func Patch(destination, v interface{}) (Restorer, error) {
 	value := reflect.ValueOf(v)
 	if !value.IsValid() {
 		// This should be a rare occurrence.
-		// the value provided could not be reflected, and we have an invalid Value type here
+		// the value provided could not be reflected, and we have an invalid Value here
 		// so just attempt to use the zero value for the destination type.
 		value = reflect.Zero(destValue.Type())
 	}
 
-	// replace the destination's current val with the provided v
+	// replace the destination's current value with the value of the provided v
 	// this shouldn't panic, because we have already checked that they are the same type
 	destValue.Set(value)
 	return func() {
@@ -76,19 +76,25 @@ func refute(t *testing.T, a interface{}, b interface{}) {
 	}
 }
 
+// A test that does some setup and then calls all the http related tests
 func TestHttpStuff(t *testing.T) {
-	// test setup for all the tests that need to mock http
+	// a pointer to these bytes is given to each sub-test so that they can define the expected response
+	// and the server will serve that up
 	var response []byte
+	// a test server is set up
 	ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		res.Write(response)
 	}))
 	defer ts.Close()
+	// set the geotrigger base url to the url of the test server
 	gtUrlRestore, err := Patch(&GEOTRIGGER_BASE_URL, ts.URL)
 	if err != nil {
 		fmt.Printf("Error test during setup: %s", err)
 		return
 	}
+	// after this test (and all sub-tests) complete, set the base url back to original value
 	defer gtUrlRestore.Restore()
+	// do the same for the AGO base url
 	agoUrlRestore, err := Patch(&AGO_BASE_URL, ts.URL)
 	if err != nil {
 		fmt.Printf("Error test during setup: %s", err)
@@ -101,11 +107,11 @@ func TestHttpStuff(t *testing.T) {
 }
 
 func testDeviceRegisterFail(t *testing.T, response *[]byte) {
-	*response = []byte(`{"error":{"code":500,"message":"Unable to register device.","details":["'client_id' invalid"]}}`)
-	expectedErrorMessage := "Error from AGO, code: 500. Message: Unable to register device."
+	*response = []byte(`{"error":{"code":400,"message":"Unable to register device.","details":["'client_id' invalid"]}}`)
+	expectedErrorMessage := "Error from AGO, code: 400. Message: Unable to register device."
 	_, err := NewDeviceClient("bad_client_id")
 	if err == nil {
-		t.Error("Expected an error, but instead got a client!\n")
+		t.Error("Expected an error, but didn't get one!\n")
 	} else if err.Error() != expectedErrorMessage {
 		t.Error("Got an error (good!) but not the right error (bad!).\n")
 	} else {
@@ -113,7 +119,7 @@ func testDeviceRegisterFail(t *testing.T, response *[]byte) {
 	}
 }
 
-func testSessionGeotriggerError(t *testing.T, responseByte *[]byte) {
+func testDeviceRegisterSuccess(t *testing.T, responseByte *[]byte) {
 //	geotriggerErrorResponse := []byte(
 //	`{"error":{"type":"invalidHeader","message":"invalid header or header value","headers":{"Authorization":
 //	[{"type":"invalid","message":"Invalid token."}]},"code":498}}`)

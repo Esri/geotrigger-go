@@ -33,6 +33,8 @@ type ErrorJSON struct {
 	Message string `json:"message"`
 }
 
+type errorHandler func(*ErrorResponse)(error)
+
 func agoPost(route string, body []byte, responseJSON interface{}) (error) {
 	req, err := http.NewRequest("POST", AGO_BASE_URL + route, bytes.NewReader(body))
 	if err != nil {
@@ -40,10 +42,13 @@ func agoPost(route string, body []byte, responseJSON interface{}) (error) {
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	return post(req, responseJSON)
+	return post(req, responseJSON, func(errResponse *ErrorResponse) error {
+		return errors.New(fmt.Sprintf("Error from AGO, code: %d. Message: %s", errResponse.Error.Code,
+			errResponse.Error.Message))
+	})
 }
 
-func post(req *http.Request, responseJSON interface{}) (error) {
+func post(req *http.Request, responseJSON interface{}, errHandler errorHandler) (error) {
 	path := req.URL.Path
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -59,8 +64,8 @@ func post(req *http.Request, responseJSON interface{}) (error) {
 		return errors.New(fmt.Sprintf("Could not read response body from %s. %s", path, err))
 	}
 
-	if err = errorCheck(contents); err != nil {
-		return err
+	if errorResponse := errorCheck(contents); errorResponse != nil {
+		return errHandler(errorResponse)
 	}
 
 	return parseJSONResponse(contents, responseJSON)
@@ -72,15 +77,13 @@ func readResponseBody(resp *http.Response) (contents []byte, err error) {
 	return
 }
 
-func errorCheck(resp []byte) (error) {
+func errorCheck(resp []byte) (*ErrorResponse) {
 	var errorContainer ErrorResponse
 	if err := json.Unmarshal(resp, &errorContainer); err != nil {
-		fmt.Println(err)
 		return nil // no recognized error present
 	}
 
-	return errors.New(fmt.Sprintf("Error from AGO, code: %d. Message: %s", errorContainer.Error.Code,
-		errorContainer.Error.Message))
+	return &errorContainer
 }
 
 func parseJSONResponse(resp []byte, responseJSON interface{}) (error) {
