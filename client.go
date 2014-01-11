@@ -47,9 +47,7 @@ func NewApplicationClient(clientId string, clientSecret string) (*Client, chan e
 // Otherwise, the error will contain information about what went wrong.
 func (client *Client) Request(route string, params map[string]interface{}, responseJSON interface{}) (chan error) {
 	errorChan := make(chan error)
-	go func() {
-		client.session.geotriggerAPIRequest(route, params, responseJSON, errorChan)
-	}()
+	go client.session.geotriggerAPIRequest(route, params, responseJSON, errorChan)
 	return errorChan
 }
 
@@ -126,9 +124,7 @@ func getTokens(session session) (*Client, chan error) {
 	errorChan := make(chan error)
 	client := &Client{session: session}
 
-	go func() {
-		session.requestAccess(errorChan)
-	}()
+	go session.requestAccess(errorChan)
 
 	return client, errorChan
 }
