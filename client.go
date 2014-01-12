@@ -19,12 +19,10 @@ type Client struct {
 // Otherwise, the error will contain information about what went wrong.
 func NewDeviceClient(clientId string) (*Client, chan error) {
 	refreshStatusChecks := make(chan *refreshStatusCheck)
-	device := &Device{
+	device := &device{
 		clientId:            clientId,
 		refreshStatusChecks: refreshStatusChecks,
 	}
-
-	go device.manageTokenConcurrency()
 
 	return getTokens(device)
 }
@@ -35,7 +33,7 @@ func NewDeviceClient(clientId string) (*Client, chan error) {
 // then the returned client pointer has been successfully inflated and is ready for use.
 // Otherwise, the error will contain information about what went wrong.
 func NewApplicationClient(clientId string, clientSecret string) (*Client, chan error) {
-	application := &Application{
+	application := &application{
 		clientId:     clientId,
 		clientSecret: clientSecret,
 	}
@@ -55,15 +53,18 @@ func (client *Client) Request(route string, params map[string]interface{}, respo
 	return errorChan
 }
 
-// Get the access token currently in use by the client session.
-func (client *Client) GetAccessToken() string {
-	return client.session.getAccessToken()
-}
-
-// Get the refresh token currently in use by the client session. Returns the empty string for application
-// clients, as the application does not use a refresh token.
-func (client *Client) GetRefreshToken() string {
-	return client.session.getRefreshToken()
+// Get info about the current session.
+// If this is an application session, the following keys will be present:
+// `access_token`
+// `client_id`
+// `client_secret`
+// If this is a device session, the following keys will be present:
+// `access_token`
+// `refresh_token`
+// `device_id`
+// `client_id`
+func (client *Client) GetSessionInfo() map[string]string {
+	return client.session.getSessionInfo()
 }
 
 // A helpful method (with explicit error messages) for unpacking values out of arbitrary JSON objects
@@ -114,12 +115,12 @@ func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value
 	// Time to set the new value being pointed to by the passed in interface.
 	// We know it's a pointer, so its value will be a reference to the value
 	// we are actually interested in changing.
-	rv := reflect.ValueOf(value)
+	pv := reflect.ValueOf(value)
 	// Elem() gets the value being pointed to,
-	trueV := rv.Elem()
+	v := pv.Elem()
 	// and we can set it directly to what we found in the JSON, since we
 	// have already checked that they are the same type.
-	trueV.Set(reflect.ValueOf(jsonVal))
+	v.Set(reflect.ValueOf(jsonVal))
 	return
 }
 
@@ -129,6 +130,6 @@ func getTokens(session session) (*Client, chan error) {
 	client := &Client{session: session}
 
 	go session.requestAccess(errorChan)
-
+	go session.tokenManager()
 	return client, errorChan
 }

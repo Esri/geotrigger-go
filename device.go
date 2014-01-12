@@ -7,7 +7,7 @@ import (
 	"net/url"
 )
 
-type Device struct {
+type device struct {
 	clientId            string
 	deviceId            string
 	accessToken         string
@@ -39,6 +39,7 @@ type DeviceRegisterResponse struct {
 
 type TokenRefreshResponse struct {
 	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
 }
 
 type DeviceTokenJSON struct {
@@ -51,7 +52,7 @@ type DeviceJSON struct {
 	DeviceId string `json:"deviceId"`
 }
 
-func (device *Device) requestAccess(errorChan chan error) {
+func (device *device) requestAccess(errorChan chan error) {
 	// prep values
 	values := url.Values{}
 	values.Set("client_id", device.clientId)
@@ -76,7 +77,7 @@ func (device *Device) requestAccess(errorChan chan error) {
 	}()
 }
 
-func (device *Device) refresh() error {
+func (device *device) refresh() error {
 	// prep values
 	values := url.Values{}
 	values.Set("client_id", device.clientId)
@@ -92,11 +93,12 @@ func (device *Device) refresh() error {
 
 	// store the new access token
 	device.accessToken = tokenRefreshResponse.AccessToken
+	device.expiresIn = tokenRefreshResponse.ExpiresIn
 
 	return nil
 }
 
-func (device *Device) geotriggerAPIRequest(route string, params map[string]interface{},
+func (device *device) geotriggerAPIRequest(route string, params map[string]interface{},
 	responseJSON interface{}, errorChan chan error) {
 	payload, err := json.Marshal(params)
 	if err != nil {
@@ -149,15 +151,16 @@ func (device *Device) geotriggerAPIRequest(route string, params map[string]inter
 	}()
 }
 
-func (device *Device) getAccessToken() string {
-	return device.accessToken
+func (device *device) getSessionInfo() map[string]string {
+	return map[string]string {
+		"access_token":  device.accessToken,
+		"refresh_token": device.refreshToken,
+		"device_id":     device.deviceId,
+		"client_id":     device.clientId,
+	}
 }
 
-func (device *Device) getRefreshToken() string {
-	return device.refreshToken
-}
-
-func (device *Device) manageTokenConcurrency() {
+func (device *device) tokenManager() {
 	waitingChecks := make([]*refreshStatusCheck, 10)
 	refreshInProgress := false
 	for {

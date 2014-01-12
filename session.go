@@ -22,8 +22,8 @@ const ago_register_route = "/sharing/oauth2/registerDevice"
 type session interface {
 	requestAccess(chan error)
 	geotriggerAPIRequest(string, map[string]interface{}, interface{}, chan error)
-	getAccessToken() string
-	getRefreshToken() string
+	getSessionInfo() map[string]string
+	tokenManager()
 }
 
 type ErrorResponse struct {
@@ -104,10 +104,15 @@ func readResponseBody(resp *http.Response) (contents []byte, err error) {
 func errorCheck(resp []byte) *ErrorResponse {
 	var errorContainer ErrorResponse
 	if err := json.Unmarshal(resp, &errorContainer); err != nil {
+		fmt.Printf("Error while marshaling JSON during error check: %s  JSON: %s", err, resp)
 		return nil // no recognized error present
 	}
 
-	return &errorContainer
+	if errorContainer.Error.Code > 0 && len(errorContainer.Error.Message) > 0 {
+		return &errorContainer
+	}
+
+	return nil
 }
 
 func parseJSONResponse(resp []byte, responseJSON interface{}) error {
