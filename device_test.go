@@ -123,7 +123,7 @@ func TestTokenRefresh(t *testing.T) {
 	expect(t, testDevice.refreshToken, "good_refresh_token")
 }
 
-func testExpiredTokenRefresh(t *testing.T) {
+func TestExpiredTokenRefresh(t *testing.T) {
 	// a test server to represent the geotrigger server
 	gtServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/some/route")
@@ -204,6 +204,35 @@ func testExpiredTokenRefresh(t *testing.T) {
 
 	err = <- errorChan
 	expect(t, err, nil)
+	expect(t, responseJSON["triggers"].([]interface{})[0].(map[string]interface{})["triggerId"], "6fd01180fa1a012f27f1705681b27197")
+	expect(t, responseJSON["boundingBox"].(map[string]interface{})["xmax"], -122.45)
+
+	// test GetValueFromJSONObject and GetValueFromJSONArray a bit
+	var triggers []interface{}
+	err = GetValueFromJSONObject(responseJSON, "triggers", &triggers)
+	if err != nil {
+		t.Error("Error while unpacking JSON:", err)
+	}
+
+	var trigger map[string]interface{}
+	err = GetValueFromJSONArray(triggers, 0, &trigger)
+	if err != nil {
+		t.Error("Error while unpacking JSON:", err)
+	}
+
+	var action map[string]interface{}
+	err = GetValueFromJSONObject(trigger, "action", &action)
+	if err != nil {
+		t.Error("Error while unpacking JSON:", err)
+	}
+
+	var callback string
+	err = GetValueFromJSONObject(action, "callback", &callback)
+	if err != nil {
+		t.Error("Error while unpacking JSON:", err)
+	}
+
+	expect(t, callback, "http://pdx.gov/welcome")
 }
 
 func testDeviceRefreshResponse(t *testing.T) {

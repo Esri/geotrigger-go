@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"reflect"
+	"io"
 )
 
 // The following are vars so that they can be changed by tests
@@ -44,7 +45,7 @@ func agoPost(route string, body []byte, responseJSON interface{}) error {
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	return post(req, responseJSON, func() (string, error) {
+	return post(req, body, responseJSON, func() (string, error) {
 		return "", errors.New("Expired token response from AGO. This is basically a 500.")
 	})
 }
@@ -59,11 +60,12 @@ func geotriggerPost(route string, body []byte, responseJSON interface{}, accessT
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
 	req.Header.Set("Content-Type", "application/json")
 
-	return post(req, responseJSON, refreshFunc)
+	return post(req, body, responseJSON, refreshFunc)
 }
 
-func post(req *http.Request, responseJSON interface{}, refreshFunc refreshHandler) error {
+func post(req *http.Request, body []byte, responseJSON interface{}, refreshFunc refreshHandler) error {
 	path := req.URL.Path
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error while posting to: %s.  Error: %s", path, err))
@@ -81,8 +83,21 @@ func post(req *http.Request, responseJSON interface{}, refreshFunc refreshHandle
 	if errResponse := errorCheck(contents); errResponse != nil {
 		if errResponse.Error.Code == 498 {
 			if token, err := refreshFunc(); err == nil {
+				// time to refresh!
+				// the body of the req cannot be reused, because it has already been read
+				// and the standard lib can't rewind the pointer on the same content.
+				// so, we have passed the underlying []byte down here so we can
+				// make a new reader from it. This is a bit unsafe (we are skipping
+				// the NewRequest constructor), but since the data is the same, all should be well.
+				var bodyReader io.Reader
+				bodyReader = bytes.NewReader(body)
+				rc, ok := bodyReader.(io.ReadCloser)
+				if !ok && bodyReader != nil {
+					rc = ioutil.NopCloser(bodyReader)
+				}
+				req.Body = rc
 				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-				return post(req, responseJSON, refreshFunc)
+				return post(req, body, responseJSON, refreshFunc)
 			} else {
 				return err
 			}
