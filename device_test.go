@@ -12,6 +12,7 @@ import (
 )
 
 func TestRegisterFail(t *testing.T) {
+	fmt.Println("device_test: TestRegisterFail")
 	// a test server to represent AGO
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/sharing/oauth2/registerDevice")
@@ -45,6 +46,7 @@ func TestRegisterFail(t *testing.T) {
 }
 
 func TestRegisterSuccess(t *testing.T) {
+	fmt.Println("device_test: TestRegisterSuccess")
 	// a test server to represent AGO
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/sharing/oauth2/registerDevice")
@@ -81,6 +83,7 @@ func TestRegisterSuccess(t *testing.T) {
 }
 
 func TestTokenRefresh(t *testing.T) {
+	fmt.Println("device_test: TestTokenRefresh")
 	// a test server to represent AGO
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/sharing/oauth2/token")
@@ -123,7 +126,8 @@ func TestTokenRefresh(t *testing.T) {
 	expect(t, testDevice.refreshToken, "good_refresh_token")
 }
 
-func TestExpiredTokenRefresh(t *testing.T) {
+func TestFullRefreshWorkFlow(t *testing.T) {
+	fmt.Println("device_test: TestFullRefreshWorkflow")
 	// a test server to represent the geotrigger server
 	gtServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/some/route")
@@ -144,7 +148,7 @@ func TestExpiredTokenRefresh(t *testing.T) {
 		} else if accessToken == "refreshed_access_token" {
 			fmt.Fprintln(res, `{"triggers":[{"triggerId":"6fd01180fa1a012f27f1705681b27197","condition":{"direction":"enter","geo":{"geocode":"920 SW 3rd Ave, Portland, OR","driveTime":600,"context":{"locality":"Portland","region":"Oregon","country":"USA","zipcode":"97204"}}},"action":{"message":"Welcome to Portland - The Mayor","callback":"http://pdx.gov/welcome"},"tags":["foodcarts","citygreetings"]}],"boundingBox":{"xmin":-122.68,"ymin":45.53,"xmax":-122.45,"ymax":45.6}}`)
 		} else {
-			t.Error(fmt.Sprintf("Unexpected access token: ", accessToken))
+			t.Error(fmt.Sprintf("Unexpected access token: %s", accessToken))
 		}
 	}))
 	defer gtServer.Close()
@@ -164,12 +168,22 @@ func TestExpiredTokenRefresh(t *testing.T) {
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		vals, _ := url.ParseQuery(string(contents))
-		expect(t, len(vals), 4)
-		expect(t, vals.Get("client_id"), "good_client_id")
-		expect(t, vals.Get("f"), "json")
-		expect(t, vals.Get("grant_type"), "refresh_token")
-		expect(t, vals.Get("refresh_token"), "good_refresh_token")
-		fmt.Fprintln(res, `{"access_token":"refreshed_access_token","expires_in":1800}`)
+
+		if r.URL.Path == ago_register_route {
+			expect(t, len(vals), 2)
+			expect(t, vals.Get("client_id"), "good_client_id")
+			expect(t, vals.Get("f"), "json")
+			fmt.Fprintln(res, `{"device":{"deviceId":"device_id","client_id":"good_client_id","apnsProdToken":null,"apnsSandboxToken":null,"gcmRegistrationId":null,"registered":1389531528000,"lastAccessed":1389531528000},"deviceToken":{"access_token":"old_access_token","expires_in":1799,"refresh_token":"good_refresh_token"}}`)
+		} else if r.URL.Path == ago_token_route {
+			expect(t, len(vals), 4)
+			expect(t, vals.Get("client_id"), "good_client_id")
+			expect(t, vals.Get("f"), "json")
+			expect(t, vals.Get("grant_type"), "refresh_token")
+			expect(t, vals.Get("refresh_token"), "good_refresh_token")
+			fmt.Fprintln(res, `{"access_token":"refreshed_access_token","expires_in":1800}`)
+		} else {
+			t.Error(fmt.Sprintf("Unexpected ago request to route: %s", r.URL.Path))
+		}
 	}))
 	defer agoServer.Close()
 
@@ -181,28 +195,18 @@ func TestExpiredTokenRefresh(t *testing.T) {
 	}
 	defer agoUrlRestorer.restore()
 
+	client, errChan := NewDeviceClient("good_client_id")
 
-	testDevice := &device{
-		clientId: "good_client_id",
-		deviceId: "device_id",
-		accessToken: "old_access_token",
-		refreshToken: "good_refresh_token",
-		expiresIn : 4,
-		refreshStatusChecks: make(chan *refreshStatusCheck),
-	}
-
-	go testDevice.tokenManager()
+	error := <- errChan
+	expect(t, error, nil)
 
 	params := map[string]interface{} {
 		"tags": "derp",
 	}
 	var responseJSON map[string]interface{}
-	errorChan := make(chan error)
-	go func() {
-		testDevice.geotriggerAPIRequest("/some/route", params, &responseJSON, errorChan)
-	}()
+	errChan = client.Request("/some/route", params, &responseJSON)
 
-	err = <- errorChan
+	err = <- errChan
 	expect(t, err, nil)
 	expect(t, responseJSON["triggers"].([]interface{})[0].(map[string]interface{})["triggerId"], "6fd01180fa1a012f27f1705681b27197")
 	expect(t, responseJSON["boundingBox"].(map[string]interface{})["xmax"], -122.45)
@@ -233,8 +237,4 @@ func TestExpiredTokenRefresh(t *testing.T) {
 	}
 
 	expect(t, callback, "http://pdx.gov/welcome")
-}
-
-func testDeviceRefreshResponse(t *testing.T) {
-
 }
