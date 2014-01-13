@@ -20,6 +20,7 @@ const (
 	accessNeeded    = iota
 	refreshNeeded   = iota
 	refreshComplete = iota
+	refreshFailed   = iota
 )
 
 type refreshStatusCheck struct {
@@ -134,6 +135,14 @@ func (device *device) geotriggerAPIRequest(route string, params map[string]inter
 
 			return accessToken, nil
 		} else {
+			refreshFailure := &refreshStatusCheck{
+				purpose: refreshFailed,
+				resp:    nil,
+			}
+			go func() {
+				device.refreshStatusChecks <- refreshFailure
+			}()
+
 			return "", err
 		}
 	}
@@ -166,7 +175,18 @@ func (device *device) tokenManager() {
 	refreshInProgress := false
 	for {
 		statusCheck := <-device.refreshStatusChecks
-		if statusCheck.purpose == refreshComplete {
+		if statusCheck.purpose == refreshFailed {
+			nextAttempt := waitingChecks[0]
+			waitingChecks = waitingChecks[1:]
+
+			if nextAttempt.purpose == refreshNeeded {
+				refreshInProgress = true
+				go device.refreshApproved(nextAttempt)
+			} else if nextAttempt.purpose == accessNeeded {
+				refreshInProgress = false
+				go device.accessApproved(nextAttempt)
+			}
+		} else if statusCheck.purpose == refreshComplete {
 			if !refreshInProgress {
 				fmt.Println("Warning: refresh completed when we assumed none were occurring.")
 			}
@@ -177,14 +197,14 @@ func (device *device) tokenManager() {
 			copy(currentWaitingChecks, waitingChecks)
 
 			// clear main status checks slice (as we might get more added shortly)
-			waitingChecks = append([]*refreshStatusCheck(nil), waitingChecks[:0]...)
+			waitingChecks = waitingChecks[:0]
 
 			for _, waitingCheck := range currentWaitingChecks {
 				// get a ref to the channel from outside the routine,
 				// otherwise, the loop will have moved forward by the time you
 				// access the channel. `range` reuses memory addresses for each
 				// iteration, so you would end up using the channel for a different
-				// object in the array.  concurrency <3
+				// object in the array.
 				currentResp := waitingCheck.resp
 				go func() {
 					currentResp <- &refreshStatusResponse{
@@ -195,11 +215,23 @@ func (device *device) tokenManager() {
 			waitingChecks = append(waitingChecks, statusCheck)
 		} else if statusCheck.purpose == refreshNeeded {
 			refreshInProgress = true
-			statusCheck.resp <- &refreshStatusResponse{
-				token: device.refreshToken, isAccessToken: false}
+			go device.refreshApproved(statusCheck)
 		} else if statusCheck.purpose == accessNeeded {
-			statusCheck.resp <- &refreshStatusResponse{
-				token: device.accessToken, isAccessToken: true}
+			go device.accessApproved(statusCheck)
 		}
+	}
+}
+
+func (device *device) accessApproved(statusCheck *refreshStatusCheck) {
+	statusCheck.resp <- &refreshStatusResponse{
+		token: device.accessToken,
+		isAccessToken: true,
+	}
+}
+
+func (device *device) refreshApproved(statusCheck *refreshStatusCheck) {
+	statusCheck.resp <- &refreshStatusResponse{
+		token: device.refreshToken,
+		isAccessToken: false,
 	}
 }

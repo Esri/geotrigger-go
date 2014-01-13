@@ -14,7 +14,6 @@ import (
 )
 
 func TestRegisterFail(t *testing.T) {
-	fmt.Println("device_test: TestRegisterFail")
 	// a test server to represent AGO
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/sharing/oauth2/registerDevice")
@@ -47,7 +46,6 @@ func TestRegisterFail(t *testing.T) {
 }
 
 func TestRegisterSuccess(t *testing.T) {
-	fmt.Println("device_test: TestRegisterSuccess")
 	client := getValidDeviceClient(t)
 	sessionInfo := client.GetSessionInfo()
 	expect(t, sessionInfo["access_token"], "good_access_token")
@@ -57,7 +55,6 @@ func TestRegisterSuccess(t *testing.T) {
 }
 
 func TestTokenRefresh(t *testing.T) {
-	fmt.Println("device_test: TestTokenRefresh")
 	// a test server to represent AGO
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/sharing/oauth2/token")
@@ -99,8 +96,7 @@ func TestTokenRefresh(t *testing.T) {
 	expect(t, testDevice.refreshToken, "good_refresh_token")
 }
 
-func testFullWorkflowWithRefresh(t *testing.T) {
-	fmt.Println("device_test: TestFullWorkflowWithRefresh")
+func TestFullWorkflowWithRefresh(t *testing.T) {
 	// a test server to represent the geotrigger server
 	gtServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/some/route")
@@ -210,9 +206,116 @@ func testFullWorkflowWithRefresh(t *testing.T) {
 	expect(t, callback, "http://pdx.gov/welcome")
 }
 
-func TestPauseRoutinesAtRefreshUntilRefresh(t *testing.T) {
-	fmt.Println("device_test: TestPauseRoutinesAtRefreshUntilRefresh")
+func TestConcurrentRefreshWaitingAtAccessStep(t *testing.T) {
+	badTokenAttempts, goodTokenAttempts := testConcurrentRefreshWaitingAtAccessStep(t, nil)
+	expect(t, badTokenAttempts, 1)
+	expect(t, goodTokenAttempts, 4)
+}
+
+func TestConcurrentRefreshWaitingAtRefreshStep(t *testing.T) {
+	badTokenAttempts, goodTokenAttempts := testConcurrentRefreshWaitingAtRefreshStep(t, nil)
+	expect(t, badTokenAttempts, 4)
+	expect(t, goodTokenAttempts, 4)
+}
+
+func TestRepeatedConcurrentBatchesOfRequestsWithRefresh(t *testing.T) {
 	client := getValidDeviceClient(t)
+	badTokenAttempts, goodTokenAttempts := testConcurrentRefreshWaitingAtRefreshStep(t, client)
+	expect(t, badTokenAttempts, 4)
+	expect(t, goodTokenAttempts, 4)
+	badTokenAttempts, goodTokenAttempts = testConcurrentRefreshWaitingAtAccessStep(t, client)
+	expect(t, badTokenAttempts, 0)
+	expect(t, goodTokenAttempts, 4)
+
+	newClient := getValidDeviceClient(t)
+	badTokenAttempts, goodTokenAttempts = testConcurrentRefreshWaitingAtAccessStep(t, newClient)
+	expect(t, badTokenAttempts, 1)
+	expect(t, goodTokenAttempts, 4)
+	badTokenAttempts, goodTokenAttempts = testConcurrentRefreshWaitingAtRefreshStep(t, newClient)
+	expect(t, badTokenAttempts, 0)
+	expect(t, goodTokenAttempts, 4)
+
+	anotherClient := getValidDeviceClient(t)
+	var totalBadTokenAttempts, totalGoodTokenAttempts int
+	var w sync.WaitGroup
+	w.Add(6)
+	go func() {
+		bt, gt := testConcurrentRefreshWaitingAtAccessStep(t, anotherClient)
+		totalBadTokenAttempts += bt
+		totalGoodTokenAttempts += gt
+		w.Done()
+	}()
+	go func() {
+		bt, gt := testConcurrentRefreshWaitingAtAccessStep(t, anotherClient)
+		totalBadTokenAttempts += bt
+		totalGoodTokenAttempts += gt
+		w.Done()
+	}()
+	go func() {
+		bt, gt := testConcurrentRefreshWaitingAtRefreshStep(t, anotherClient)
+		totalBadTokenAttempts += bt
+		totalGoodTokenAttempts += gt
+		w.Done()
+	}()
+	go func() {
+		bt, gt := testConcurrentRefreshWaitingAtRefreshStep(t, anotherClient)
+		totalBadTokenAttempts += bt
+		totalGoodTokenAttempts += gt
+		w.Done()
+	}()
+	go func() {
+		bt, gt := testConcurrentRefreshWaitingAtAccessStep(t, anotherClient)
+		totalBadTokenAttempts += bt
+		totalGoodTokenAttempts += gt
+		w.Done()
+	}()
+	go func() {
+		bt, gt := testConcurrentRefreshWaitingAtRefreshStep(t, anotherClient)
+		totalBadTokenAttempts += bt
+		totalGoodTokenAttempts += gt
+		w.Done()
+	}()
+	w.Wait()
+
+	// 15 here because, starting with routine at the top, we have: 1 + 1 + 4 + 4 + 1 + 4
+	// everything runs at once, which means we can add up the expectations as if
+	// we were running each of these 4 routines separately with separate clients
+	// as the timing is not a factor as it is in the first batch of sequential runs above.
+	expect(t, totalBadTokenAttempts, 15)
+	// 24 here because 6 * 4 (each routine uses a good token 4 times)
+	expect(t, totalGoodTokenAttempts, 24)
+}
+
+func testConcurrentRefreshWaitingAtAccessStep(t *testing.T, client *Client) (int, int) {
+	// This will spawn 4 go routines making requests with bad tokens.
+	// The first routine will fire away immediately, get the invalid token response
+	// from the geotrigger server, ask for permission to refresh, and start refreshing the token.
+	// After a 1 second delay, the other 3 routines will ask to use the access token,
+	// and end up waiting because a refresh is in progress.
+	// After the first routine successfully refreshes the token, the waiting
+	// routines will be give the message to continue by using the new access token.
+	return testConcurrentRefresh(t, client, true)
+}
+
+func testConcurrentRefreshWaitingAtRefreshStep(t *testing.T, client *Client) (int, int) {
+	// This will spawn 4 go routines making requests with bad tokens.
+	// Each routine will get permissions to present the access token to
+	// the geotrigger server.
+	// The first routine to receive the invalid token response will then ask for
+	// permission to refresh the token, and be granted that permission.
+	// The other 3 routines will also ask for permission to refresh, and instead
+	// end up waiting for a reply to that request.
+	// After the first routine successfully refreshes the token, the waiting
+	// routines will be give the message to continue, but not refresh, and
+	// instead use the new access token.
+	return testConcurrentRefresh(t, client, false)
+}
+
+// A big ugly func, separated out to avoid duplicating it
+func testConcurrentRefresh(t *testing.T, client *Client, pauseAfterFirstReq bool) (int, int){
+	if client == nil {
+		client = getValidDeviceClient(t)
+	}
 
 	var refreshCount int
 	// a test server to represent AGO
@@ -223,7 +326,7 @@ func TestPauseRoutinesAtRefreshUntilRefresh(t *testing.T) {
 			t.Error("Too many refresh attempts! Should have only been 1.")
 		}
 
-		time.Sleep(6 * time.Second)
+		time.Sleep(3 * time.Second)
 		expect(t, r.URL.Path, ago_token_route)
 		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
 		refute(t, r, nil)
@@ -246,8 +349,7 @@ func TestPauseRoutinesAtRefreshUntilRefresh(t *testing.T) {
 	}
 	defer agoUrlRestorer.restore()
 
-	var oldAccessTokenUse int
-	var refreshTokenUse int
+	var oldAccessTokenUse, refreshedAccessTokenUse int
 	// a test server to represent the geotrigger server
 	gtServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/some/route")
@@ -267,7 +369,7 @@ func TestPauseRoutinesAtRefreshUntilRefresh(t *testing.T) {
 			oldAccessTokenUse++
 			fmt.Fprintln(res, `{"error":{"type":"invalidHeader","message":"invalid header or header value","headers":{"Authorization":[{"type":"invalid","message":"Invalid token."}]},"code":498}}`)
 		} else if accessToken == "refreshed_access_token" {
-			refreshTokenUse++
+			refreshedAccessTokenUse++
 			fmt.Fprintln(res, `{"triggers":[{"triggerId":"6fd01180fa1a012f27f1705681b27197","condition":{"direction":"enter","geo":{"geocode":"920 SW 3rd Ave, Portland, OR","driveTime":600,"context":{"locality":"Portland","region":"Oregon","country":"USA","zipcode":"97204"}}},"action":{"message":"Welcome to Portland - The Mayor","callback":"http://pdx.gov/welcome"},"tags":["foodcarts","citygreetings"]}],"boundingBox":{"xmin":-122.68,"ymin":45.53,"xmax":-122.45,"ymax":45.6}}`)
 		} else {
 			t.Error(fmt.Sprintf("Unexpected access token: %s", accessToken))
@@ -300,49 +402,41 @@ func TestPauseRoutinesAtRefreshUntilRefresh(t *testing.T) {
 	var responseJSON4 map[string]interface{}
 
 	errChan1 := client.Request("/some/route", params1, &responseJSON1)
-	time.Sleep(3 * time.Second)
+	if pauseAfterFirstReq {
+		time.Sleep(1 * time.Second)
+	}
 	errChan2 := client.Request("/some/route", params2, &responseJSON2)
 	errChan3 := client.Request("/some/route", params3, &responseJSON3)
 	errChan4 := client.Request("/some/route", params4, &responseJSON4)
 
 	var w sync.WaitGroup
-	w.Add(1)
+	w.Add(4)
 	go func() {
 		error := <- errChan1
 		expect(t, error, nil)
-		fmt.Println("request1 complete")
 		w.Done()
 	}()
-	w.Add(1)
 	go func() {
 		error := <- errChan2
 		expect(t, error, nil)
-		fmt.Println("request2 complete")
 		w.Done()
 	}()
-	w.Add(1)
 	go func() {
 		error := <- errChan3
 		expect(t, error, nil)
-		fmt.Println("request3 complete")
 		w.Done()
 	}()
-	w.Add(1)
 	go func() {
 		error := <- errChan4
 		expect(t, error, nil)
-		fmt.Println("request4 complete")
 		w.Done()
 	}()
 	w.Wait()
 
-	fmt.Println("old access token used:", oldAccessTokenUse, "refreshed token used:", refreshTokenUse)
+	return oldAccessTokenUse, refreshedAccessTokenUse
 }
 
-func TestPauseRoutinesAtAccessUntilRefresh(t *testing.T) {
-
-}
-
+// separated out to avoid some duplication where possible
 func getValidDeviceClient(t *testing.T) *Client {
 	// a test server to represent AGO
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
