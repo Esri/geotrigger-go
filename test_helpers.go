@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+// restorer and patch adapted from https://gist.github.com/imosquera/6716490
+// thanks imosquera!
 // Restorer holds a function that can be used
 // to restore some previous state.
 type restorer func()
@@ -59,6 +61,8 @@ func patch(destination, v interface{}) (restorer, error) {
 	}, nil
 }
 
+// https://github.com/codegangsta/martini/blob/master/martini_test.go
+// thanks codegangsta for these lil guys ;)
 func expect(t *testing.T, a interface{}, b interface{}) {
 	if a != b {
 		t.Errorf("Expected %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))

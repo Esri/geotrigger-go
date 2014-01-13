@@ -128,7 +128,9 @@ func (device *device) geotriggerAPIRequest(route string, params map[string]inter
 				purpose: refreshComplete,
 				resp:    nil,
 			}
-			device.refreshStatusChecks <- refreshSuccess
+			go func() {
+				device.refreshStatusChecks <- refreshSuccess
+			}()
 
 			return accessToken, nil
 		} else {
@@ -143,7 +145,6 @@ func (device *device) geotriggerAPIRequest(route string, params map[string]inter
 	device.refreshStatusChecks <- statusCheck
 
 	statusResp := <-statusCheck.resp
-
 	err = geotriggerPost(route, payload, responseJSON, statusResp.token, refreshFunc)
 
 	go func() {
@@ -161,13 +162,11 @@ func (device *device) getSessionInfo() map[string]string {
 }
 
 func (device *device) tokenManager() {
-	waitingChecks := make([]*refreshStatusCheck, 10)
+	var waitingChecks []*refreshStatusCheck
 	refreshInProgress := false
 	for {
 		statusCheck := <-device.refreshStatusChecks
-		if refreshInProgress {
-			waitingChecks = append(waitingChecks, statusCheck)
-		} else if statusCheck.purpose == refreshComplete {
+		if statusCheck.purpose == refreshComplete {
 			if !refreshInProgress {
 				fmt.Println("Warning: refresh completed when we assumed none were occurring.")
 			}
@@ -181,11 +180,19 @@ func (device *device) tokenManager() {
 			waitingChecks = append([]*refreshStatusCheck(nil), waitingChecks[:0]...)
 
 			for _, waitingCheck := range currentWaitingChecks {
+				// get a ref to the channel from outside the routine,
+				// otherwise, the loop will have moved forward by the time you
+				// access the channel. `range` reuses memory addresses for each
+				// iteration, so you would end up using the channel for a different
+				// object in the array.  concurrency <3
+				currentResp := waitingCheck.resp
 				go func() {
-					waitingCheck.resp <- &refreshStatusResponse{
-						token: device.accessToken, isAccessToken: true}
+					currentResp <- &refreshStatusResponse{
+					token: device.accessToken, isAccessToken: true}
 				}()
 			}
+		} else if refreshInProgress {
+			waitingChecks = append(waitingChecks, statusCheck)
 		} else if statusCheck.purpose == refreshNeeded {
 			refreshInProgress = true
 			statusCheck.resp <- &refreshStatusResponse{

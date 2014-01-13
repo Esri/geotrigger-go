@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"encoding/json"
 	"strings"
+	"time"
+	"sync"
 )
 
 func TestRegisterFail(t *testing.T) {
@@ -31,8 +33,7 @@ func TestRegisterFail(t *testing.T) {
 	// set the ago url to the url of our test server so we aren't hitting prod
 	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
-		fmt.Printf("Error during test setup: %s", err)
-		return
+		t.Error("Error during test setup: %s", err)
 	}
 	defer agoUrlRestorer.restore()
 
@@ -47,34 +48,7 @@ func TestRegisterFail(t *testing.T) {
 
 func TestRegisterSuccess(t *testing.T) {
 	fmt.Println("device_test: TestRegisterSuccess")
-	// a test server to represent AGO
-	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
-		expect(t, r.URL.Path, "/sharing/oauth2/registerDevice")
-		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
-		refute(t, r, nil)
-		contents, _ := ioutil.ReadAll(r.Body)
-		refute(t, len(contents), 0)
-		vals, _ := url.ParseQuery(string(contents))
-		expect(t, len(vals), 2)
-		expect(t, vals.Get("client_id"), "good_client_id")
-		expect(t, vals.Get("f"), "json")
-		fmt.Fprintln(res, `{"device":{"deviceId":"device_id","client_id":"good_client_id","apnsProdToken":null,"apnsSandboxToken":null,"gcmRegistrationId":null,"registered":1389531528000,"lastAccessed":1389531528000},"deviceToken":{"access_token":"good_access_token","expires_in":1799,"refresh_token":"good_refresh_token"}}`)
-	}))
-	defer agoServer.Close()
-
-	// set the ago url to the url of our test server so we aren't hitting prod
-	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
-	if err != nil {
-		fmt.Printf("Error during test setup: %s", err)
-		return
-	}
-	defer agoUrlRestorer.restore()
-
-	client, errChan := NewDeviceClient("good_client_id")
-
-	error := <- errChan
-
-	expect(t, error, nil)
+	client := getValidDeviceClient(t)
 	sessionInfo := client.GetSessionInfo()
 	expect(t, sessionInfo["access_token"], "good_access_token")
 	expect(t, sessionInfo["refresh_token"], "good_refresh_token")
@@ -104,8 +78,7 @@ func TestTokenRefresh(t *testing.T) {
 	// set the ago url to the url of our test server so we aren't hitting prod
 	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
-		fmt.Printf("Error during test setup: %s", err)
-		return
+		t.Error("Error during test setup: %s", err)
 	}
 	defer agoUrlRestorer.restore()
 
@@ -126,8 +99,8 @@ func TestTokenRefresh(t *testing.T) {
 	expect(t, testDevice.refreshToken, "good_refresh_token")
 }
 
-func TestFullRefreshWorkFlow(t *testing.T) {
-	fmt.Println("device_test: TestFullRefreshWorkflow")
+func testFullWorkflowWithRefresh(t *testing.T) {
+	fmt.Println("device_test: TestFullWorkflowWithRefresh")
 	// a test server to represent the geotrigger server
 	gtServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/some/route")
@@ -156,8 +129,7 @@ func TestFullRefreshWorkFlow(t *testing.T) {
 	// set the geotrigger url to the url of our test server so we aren't hitting prod
 	gtUrlRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
 	if err != nil {
-		fmt.Printf("Error during test setup: %s", err)
-		return
+		t.Error("Error during test setup: %s", err)
 	}
 	defer gtUrlRestorer.restore()
 
@@ -190,8 +162,7 @@ func TestFullRefreshWorkFlow(t *testing.T) {
 	// set the ago url to the url of our test server so we aren't hitting prod
 	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
-		fmt.Printf("Error during test setup: %s", err)
-		return
+		t.Error("Error during test setup: %s", err)
 	}
 	defer agoUrlRestorer.restore()
 
@@ -237,4 +208,168 @@ func TestFullRefreshWorkFlow(t *testing.T) {
 	}
 
 	expect(t, callback, "http://pdx.gov/welcome")
+}
+
+func TestPauseRoutinesAtRefreshUntilRefresh(t *testing.T) {
+	fmt.Println("device_test: TestPauseRoutinesAtRefreshUntilRefresh")
+	client := getValidDeviceClient(t)
+
+	var refreshCount int
+	// a test server to represent AGO
+	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
+		refreshCount++
+
+		if refreshCount > 1 {
+			t.Error("Too many refresh attempts! Should have only been 1.")
+		}
+
+		time.Sleep(6 * time.Second)
+		expect(t, r.URL.Path, ago_token_route)
+		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
+		refute(t, r, nil)
+		contents, _ := ioutil.ReadAll(r.Body)
+		refute(t, len(contents), 0)
+		vals, _ := url.ParseQuery(string(contents))
+		expect(t, len(vals), 4)
+		expect(t, vals.Get("client_id"), "good_client_id")
+		expect(t, vals.Get("f"), "json")
+		expect(t, vals.Get("grant_type"), "refresh_token")
+		expect(t, vals.Get("refresh_token"), "good_refresh_token")
+		fmt.Fprintln(res, `{"access_token":"refreshed_access_token","expires_in":1800}`)
+	}))
+	defer agoServer.Close()
+
+	// set the ago url to the url of our test server so we aren't hitting prod
+	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	if err != nil {
+		t.Error("Error during test setup: %s", err)
+	}
+	defer agoUrlRestorer.restore()
+
+	var oldAccessTokenUse int
+	var refreshTokenUse int
+	// a test server to represent the geotrigger server
+	gtServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
+		expect(t, r.URL.Path, "/some/route")
+		expect(t, r.Header.Get("Content-Type"), "application/json")
+		accessToken := r.Header.Get("Authorization")
+		expect(t, strings.Index(accessToken, "Bearer "), 0)
+		accessToken = strings.Split(accessToken, " ")[1]
+		refute(t, r, nil)
+		contents, _ := ioutil.ReadAll(r.Body)
+		refute(t, len(contents), 0)
+		var params map[string]interface{}
+		_ = json.Unmarshal(contents, &params)
+		expect(t, len(params), 1)
+		expect(t, params["tags"], "derp")
+
+		if accessToken == "good_access_token" {
+			oldAccessTokenUse++
+			fmt.Fprintln(res, `{"error":{"type":"invalidHeader","message":"invalid header or header value","headers":{"Authorization":[{"type":"invalid","message":"Invalid token."}]},"code":498}}`)
+		} else if accessToken == "refreshed_access_token" {
+			refreshTokenUse++
+			fmt.Fprintln(res, `{"triggers":[{"triggerId":"6fd01180fa1a012f27f1705681b27197","condition":{"direction":"enter","geo":{"geocode":"920 SW 3rd Ave, Portland, OR","driveTime":600,"context":{"locality":"Portland","region":"Oregon","country":"USA","zipcode":"97204"}}},"action":{"message":"Welcome to Portland - The Mayor","callback":"http://pdx.gov/welcome"},"tags":["foodcarts","citygreetings"]}],"boundingBox":{"xmin":-122.68,"ymin":45.53,"xmax":-122.45,"ymax":45.6}}`)
+		} else {
+			t.Error(fmt.Sprintf("Unexpected access token: %s", accessToken))
+		}
+	}))
+	defer gtServer.Close()
+
+	// set the geotrigger url to the url of our test server so we aren't hitting prod
+	gtUrlRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
+	if err != nil {
+		t.Error("Error during test setup: %s", err)
+	}
+	defer gtUrlRestorer.restore()
+
+	params1 := map[string]interface{} {
+		"tags": "derp",
+	}
+	var responseJSON1 map[string]interface{}
+	params2 := map[string]interface{} {
+		"tags": "derp",
+	}
+	var responseJSON2 map[string]interface{}
+	params3 := map[string]interface{} {
+		"tags": "derp",
+	}
+	var responseJSON3 map[string]interface{}
+	params4 := map[string]interface{} {
+		"tags": "derp",
+	}
+	var responseJSON4 map[string]interface{}
+
+	errChan1 := client.Request("/some/route", params1, &responseJSON1)
+	time.Sleep(3 * time.Second)
+	errChan2 := client.Request("/some/route", params2, &responseJSON2)
+	errChan3 := client.Request("/some/route", params3, &responseJSON3)
+	errChan4 := client.Request("/some/route", params4, &responseJSON4)
+
+	var w sync.WaitGroup
+	w.Add(1)
+	go func() {
+		error := <- errChan1
+		expect(t, error, nil)
+		fmt.Println("request1 complete")
+		w.Done()
+	}()
+	w.Add(1)
+	go func() {
+		error := <- errChan2
+		expect(t, error, nil)
+		fmt.Println("request2 complete")
+		w.Done()
+	}()
+	w.Add(1)
+	go func() {
+		error := <- errChan3
+		expect(t, error, nil)
+		fmt.Println("request3 complete")
+		w.Done()
+	}()
+	w.Add(1)
+	go func() {
+		error := <- errChan4
+		expect(t, error, nil)
+		fmt.Println("request4 complete")
+		w.Done()
+	}()
+	w.Wait()
+
+	fmt.Println("old access token used:", oldAccessTokenUse, "refreshed token used:", refreshTokenUse)
+}
+
+func TestPauseRoutinesAtAccessUntilRefresh(t *testing.T) {
+
+}
+
+func getValidDeviceClient(t *testing.T) *Client {
+	// a test server to represent AGO
+	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
+		expect(t, r.URL.Path, "/sharing/oauth2/registerDevice")
+		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
+		refute(t, r, nil)
+		contents, _ := ioutil.ReadAll(r.Body)
+		refute(t, len(contents), 0)
+		vals, _ := url.ParseQuery(string(contents))
+		expect(t, len(vals), 2)
+		expect(t, vals.Get("client_id"), "good_client_id")
+		expect(t, vals.Get("f"), "json")
+		fmt.Fprintln(res, `{"device":{"deviceId":"device_id","client_id":"good_client_id","apnsProdToken":null,"apnsSandboxToken":null,"gcmRegistrationId":null,"registered":1389531528000,"lastAccessed":1389531528000},"deviceToken":{"access_token":"good_access_token","expires_in":1799,"refresh_token":"good_refresh_token"}}`)
+	}))
+	defer agoServer.Close()
+
+	// set the ago url to the url of our test server so we aren't hitting prod
+	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	if err != nil {
+		t.Error("Error during test setup: %s", err)
+	}
+	defer agoUrlRestorer.restore()
+
+	client, errChan := NewDeviceClient("good_client_id")
+
+	error := <- errChan
+
+	expect(t, error, nil)
+	return client
 }

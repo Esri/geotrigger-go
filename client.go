@@ -1,3 +1,15 @@
+// Package geotrigger_golang provides API access to the Geotrigger Service,
+// a cloud based system of geofencing and push notifications. The library
+// makes it easier to interact with the Geotrigger API as either a Device or
+// an Application. This assumes you have a developer account on
+// developers.arcgis.com, from which you can create an Application and obtain
+// the necessary credentials to use with this golang library.
+//
+// For more information about the Geotrigger Service, please look here:
+// https://developers.arcgis.com/en/geotrigger-service/
+//
+// Documentation for this library can be found on github:
+// https://github.com/geoloqi/geotrigger_golang
 package geotrigger_golang
 
 // The client struct type. Has one, un-exported field for a session that handles
