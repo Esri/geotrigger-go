@@ -7,6 +7,47 @@ import (
 	"testing"
 )
 
+// mustBeNil & mustNotBeNil author: courtf
+func mustBeNil(t *testing.T, a interface{}) {
+	tp := reflect.TypeOf(a)
+	if tp == nil {
+		return
+	}
+
+	switch tp.Kind() {
+	case reflect.Chan:
+	case reflect.Func:
+	case reflect.Interface:
+	case reflect.Map:
+	case reflect.Ptr:
+	case reflect.Slice:
+		if !reflect.ValueOf(a).IsNil() {
+			t.Errorf("Expected %v (type %v) to be nil", a, tp)
+		}
+	}
+}
+
+func mustNotBeNil(t *testing.T, a interface{}) {
+	tp := reflect.TypeOf(a)
+	msg := fmt.Sprintf("Expected %v (type %v) to not be nil", a, tp)
+
+	if tp == nil {
+		t.Error(msg)
+	}
+
+	switch tp.Kind() {
+	case reflect.Chan:
+	case reflect.Func:
+	case reflect.Interface:
+	case reflect.Map:
+	case reflect.Ptr:
+	case reflect.Slice:
+		if !reflect.ValueOf(a).IsNil() {
+			t.Error(msg)
+		}
+	}
+}
+
 // restorer and patch adapted from https://gist.github.com/imosquera/6716490
 // thanks imosquera!
 // Restorer holds a function that can be used

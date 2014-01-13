@@ -18,7 +18,7 @@ func TestRegisterFail(t *testing.T) {
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/sharing/oauth2/registerDevice")
 		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
-		refute(t, r, nil)
+		mustNotBeNil(t, r)
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		vals, _ := url.ParseQuery(string(contents))
@@ -59,7 +59,7 @@ func TestTokenRefresh(t *testing.T) {
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/sharing/oauth2/token")
 		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
-		refute(t, r, nil)
+		mustNotBeNil(t, r)
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		vals, _ := url.ParseQuery(string(contents))
@@ -104,7 +104,7 @@ func TestFullWorkflowWithRefresh(t *testing.T) {
 		accessToken := r.Header.Get("Authorization")
 		expect(t, strings.Index(accessToken, "Bearer "), 0)
 		accessToken = strings.Split(accessToken, " ")[1]
-		refute(t, r, nil)
+		mustNotBeNil(t, r)
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		var params map[string]interface{}
@@ -132,7 +132,7 @@ func TestFullWorkflowWithRefresh(t *testing.T) {
 	// a test server to represent AGO
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
-		refute(t, r, nil)
+		mustNotBeNil(t, r)
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		vals, _ := url.ParseQuery(string(contents))
@@ -238,13 +238,11 @@ func TestRepeatedConcurrentBatchesOfRequestsWithRefresh(t *testing.T) {
 	anotherClient := getValidDeviceClient(t)
 	var totalBadTokenAttempts, totalGoodTokenAttempts int
 	var w sync.WaitGroup
-	w.Add(6)
-	go func() {
-		bt, gt := testConcurrentRefreshWaitingAtAccessStep(t, anotherClient)
-		totalBadTokenAttempts += bt
-		totalGoodTokenAttempts += gt
-		w.Done()
-	}()
+
+	// don't go beyond 4 here, as the test server will start closing connections
+	// if the request rate gets too high, resulting in test failures.  16 total is
+	// enough to prove the test and isn't overwhelming the server when running on my MBA.
+	w.Add(4)
 	go func() {
 		bt, gt := testConcurrentRefreshWaitingAtAccessStep(t, anotherClient)
 		totalBadTokenAttempts += bt
@@ -265,25 +263,19 @@ func TestRepeatedConcurrentBatchesOfRequestsWithRefresh(t *testing.T) {
 	}()
 	go func() {
 		bt, gt := testConcurrentRefreshWaitingAtAccessStep(t, anotherClient)
-		totalBadTokenAttempts += bt
-		totalGoodTokenAttempts += gt
-		w.Done()
-	}()
-	go func() {
-		bt, gt := testConcurrentRefreshWaitingAtRefreshStep(t, anotherClient)
 		totalBadTokenAttempts += bt
 		totalGoodTokenAttempts += gt
 		w.Done()
 	}()
 	w.Wait()
 
-	// 15 here because, starting with routine at the top, we have: 1 + 1 + 4 + 4 + 1 + 4
+	// 10 here because, starting with routine at the top, we have: 1 + 4 + 4 + 1
 	// everything runs at once, which means we can add up the expectations as if
 	// we were running each of these 4 routines separately with separate clients
 	// as the timing is not a factor as it is in the first batch of sequential runs above.
-	expect(t, totalBadTokenAttempts, 15)
-	// 24 here because 6 * 4 (each routine uses a good token 4 times)
-	expect(t, totalGoodTokenAttempts, 24)
+	expect(t, totalBadTokenAttempts, 10)
+	// 16 here because 4 * 4 (each routine uses a good token 4 times)
+	expect(t, totalGoodTokenAttempts, 16)
 }
 
 func TestRecoveryFromErrorDuringRefreshWithRoutinesWaitingForAccess(t *testing.T) {
@@ -363,7 +355,7 @@ func testConcurrentRefresh(t *testing.T, client *Client, pauseAfterFirstReq bool
 		time.Sleep(80 * time.Millisecond)
 		expect(t, r.URL.Path, ago_token_route)
 		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
-		refute(t, r, nil)
+		mustNotBeNil(t, r)
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		vals, _ := url.ParseQuery(string(contents))
@@ -391,7 +383,7 @@ func testConcurrentRefresh(t *testing.T, client *Client, pauseAfterFirstReq bool
 		accessToken := r.Header.Get("Authorization")
 		expect(t, strings.Index(accessToken, "Bearer "), 0)
 		accessToken = strings.Split(accessToken, " ")[1]
-		refute(t, r, nil)
+		mustNotBeNil(t, r)
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		var params map[string]interface{}
@@ -476,7 +468,7 @@ func getValidDeviceClient(t *testing.T) *Client {
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		expect(t, r.URL.Path, "/sharing/oauth2/registerDevice")
 		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
-		refute(t, r, nil)
+		mustNotBeNil(t, r)
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		vals, _ := url.ParseQuery(string(contents))
@@ -519,7 +511,7 @@ func testRecoveryFromErrorDuringRefresh(t *testing.T, client *Client, pauseAfter
 		time.Sleep(80 * time.Millisecond)
 		expect(t, r.URL.Path, ago_token_route)
 		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
-		refute(t, r, nil)
+		mustNotBeNil(t, r)
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		vals, _ := url.ParseQuery(string(contents))
@@ -552,7 +544,7 @@ func testRecoveryFromErrorDuringRefresh(t *testing.T, client *Client, pauseAfter
 		accessToken := r.Header.Get("Authorization")
 		expect(t, strings.Index(accessToken, "Bearer "), 0)
 		accessToken = strings.Split(accessToken, " ")[1]
-		refute(t, r, nil)
+		mustNotBeNil(t, r)
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		var params map[string]interface{}

@@ -80,12 +80,7 @@ func post(req *http.Request, body []byte, responseJSON interface{}, refreshFunc 
 		return errors.New(fmt.Sprintf("Could not read response body from %s. %s", path, err))
 	}
 
-	errResponse, err := errorCheck(contents)
-	if err != nil {
-		return err
-	}
-
-	if errResponse != nil {
+	if errResponse := errorCheck(contents); errResponse != nil {
 		if errResponse.Error.Code == 498 {
 			if token, err := refreshFunc(); err == nil {
 				// time to refresh!
@@ -121,17 +116,21 @@ func readResponseBody(resp *http.Response) (contents []byte, err error) {
 	return
 }
 
-func errorCheck(resp []byte) (*ErrorResponse, error) {
+func errorCheck(resp []byte) (*ErrorResponse) {
 	var errorContainer ErrorResponse
 	if err := json.Unmarshal(resp, &errorContainer); err != nil {
-		return nil, errors.New(fmt.Sprintf("Error while marshaling JSON during error check: %s  JSON: %s", err, resp))
+		// Don't return an error here, as it is possible for the response
+		// to not be parsed into an ErrorResponse, causing an error to be thrown, but still
+		// be valid, ie: the root element of the response is an array.
+		// We are just looking to see if we can spot a known server error anyway.
+		return nil
 	}
 
 	if errorContainer.Error.Code > 0 && len(errorContainer.Error.Message) > 0 {
-		return &errorContainer, nil
+		return &errorContainer
 	}
 
-	return nil, nil
+	return nil
 }
 
 func parseJSONResponse(resp []byte, responseJSON interface{}) error {
