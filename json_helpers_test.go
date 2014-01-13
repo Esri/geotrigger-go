@@ -13,6 +13,7 @@ func TestErrorCheck(t *testing.T) {
 	errResponse = errorCheck(resp)
 	mustBeNil(t, errResponse)
 
-	var derp [5]byte
-	mustBeNil(t, derp)
+	resp = []byte(`{"error":{"code":400,"message":"Invalid token."}}`)
+	errResponse = errorCheck(resp)
+	mustNotBeNil(t, errResponse)
 }

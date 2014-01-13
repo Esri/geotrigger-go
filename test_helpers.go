@@ -7,45 +7,44 @@ import (
 	"testing"
 )
 
-// mustBeNil & mustNotBeNil author: courtf
+// mustBeNil()/mustNotBeNil() isNillable() author: courtf
 func mustBeNil(t *testing.T, a interface{}) {
 	tp := reflect.TypeOf(a)
 	if tp == nil {
 		return
 	}
 
-	switch tp.Kind() {
-	case reflect.Chan:
-	case reflect.Func:
-	case reflect.Interface:
-	case reflect.Map:
-	case reflect.Ptr:
-	case reflect.Slice:
-		if !reflect.ValueOf(a).IsNil() {
-			t.Errorf("Expected %v (type %v) to be nil", a, tp)
-		}
+	if !isNillable(tp.Kind()) || !reflect.ValueOf(a).IsNil() {
+		t.Errorf("Expected %v (type %v) to be nil", a, tp)
 	}
 }
 
 func mustNotBeNil(t *testing.T, a interface{}) {
 	tp := reflect.TypeOf(a)
-	msg := fmt.Sprintf("Expected %v (type %v) to not be nil", a, tp)
 
-	if tp == nil {
-		t.Error(msg)
+	if tp == nil || (isNillable(tp.Kind()) && reflect.ValueOf(a).IsNil()) {
+		t.Errorf("Expected %v (type %v) to not be nil", a, tp)
+	}
+}
+
+func isNillable(k reflect.Kind) (found bool) {
+	kinds := []reflect.Kind{
+		reflect.Chan,
+		reflect.Func,
+		reflect.Interface,
+		reflect.Map,
+		reflect.Ptr,
+		reflect.Slice,
 	}
 
-	switch tp.Kind() {
-	case reflect.Chan:
-	case reflect.Func:
-	case reflect.Interface:
-	case reflect.Map:
-	case reflect.Ptr:
-	case reflect.Slice:
-		if !reflect.ValueOf(a).IsNil() {
-			t.Error(msg)
+	for i := 0; i < len(kinds); i++ {
+		if kinds[i] == k {
+			found = true
+			break
 		}
 	}
+
+	return
 }
 
 // restorer and patch adapted from https://gist.github.com/imosquera/6716490

@@ -116,7 +116,7 @@ func readResponseBody(resp *http.Response) (contents []byte, err error) {
 	return
 }
 
-func errorCheck(resp []byte) (*ErrorResponse) {
+func errorCheck(resp []byte) *ErrorResponse {
 	var errorContainer ErrorResponse
 	if err := json.Unmarshal(resp, &errorContainer); err != nil {
 		// Don't return an error here, as it is possible for the response
