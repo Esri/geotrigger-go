@@ -7,16 +7,14 @@ type application struct {
 	expiresIn    int
 }
 
-func (application *application) requestAccess(errorChan chan error) {
-	return
+func (application *application) Request(route string, params map[string]interface{},
+	responseJSON interface{}) chan error {
+	errorChan := make(chan error)
+	go application.request(route, params, responseJSON, errorChan)
+	return errorChan
 }
 
-func (application *application) geotriggerAPIRequest(route string, params map[string]interface{},
-	responseJSON interface{}, errorChan chan error) {
-	return
-}
-
-func (application *application) getSessionInfo() map[string]string {
+func (application *application) GetSessionInfo() map[string]string {
 	return map[string]string{
 		"access_token":  application.accessToken,
 		"client_id":     application.clientId,
@@ -24,6 +22,24 @@ func (application *application) getSessionInfo() map[string]string {
 	}
 }
 
+func newApplication(clientId string, clientSecret string) (Session, chan error) {
+	application := &application{
+		clientId:     clientId,
+		clientSecret: clientSecret,
+	}
+
+	return application, sessionInit(application)
+}
+
+func (application *application) requestAccess(errorChan chan error) {
+	return
+}
+
 func (application *application) tokenManager() {
 	return
+}
+
+func (application *application) request(route string, params map[string]interface{},
+	responseJSON interface{}, errorChan chan error) {
+	errorChan <- nil
 }

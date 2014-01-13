@@ -7,13 +7,13 @@ import (
 func TestErrorCheck(t *testing.T) {
 	resp := []byte(`["array", "root", "element"]`)
 	errResponse := errorCheck(resp)
-	mustBeNil(t, errResponse)
+	expect(t, errResponse, nil)
 
 	resp = []byte(`{"object":"doesnt match", "derp":["dorp", "morp"]}`)
 	errResponse = errorCheck(resp)
-	mustBeNil(t, errResponse)
+	expect(t, errResponse, nil)
 
 	resp = []byte(`{"error":{"code":400,"message":"Invalid token."}}`)
 	errResponse = errorCheck(resp)
-	mustNotBeNil(t, errResponse)
+	refute(t, errResponse, nil)
 }

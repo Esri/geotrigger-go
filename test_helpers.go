@@ -10,11 +10,8 @@ import (
 // mustBeNil()/mustNotBeNil() isNillable() author: courtf
 func mustBeNil(t *testing.T, a interface{}) {
 	tp := reflect.TypeOf(a)
-	if tp == nil {
-		return
-	}
 
-	if !isNillable(tp.Kind()) || !reflect.ValueOf(a).IsNil() {
+	if tp != nil && (!isNillable(tp.Kind()) || !reflect.ValueOf(a).IsNil()) {
 		t.Errorf("Expected %v (type %v) to be nil", a, tp)
 	}
 }
@@ -27,7 +24,7 @@ func mustNotBeNil(t *testing.T, a interface{}) {
 	}
 }
 
-func isNillable(k reflect.Kind) (found bool) {
+func isNillable(k reflect.Kind) (nillable bool) {
 	kinds := []reflect.Kind{
 		reflect.Chan,
 		reflect.Func,
@@ -39,7 +36,7 @@ func isNillable(k reflect.Kind) (found bool) {
 
 	for i := 0; i < len(kinds); i++ {
 		if kinds[i] == k {
-			found = true
+			nillable = true
 			break
 		}
 	}
@@ -104,13 +101,17 @@ func patch(destination, v interface{}) (restorer, error) {
 // https://github.com/codegangsta/martini/blob/master/martini_test.go
 // thanks codegangsta for these lil guys ;)
 func expect(t *testing.T, a interface{}, b interface{}) {
-	if a != b {
+	if b == nil {
+		mustBeNil(t, a)
+	} else if a != b {
 		t.Errorf("Expected %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
 	}
 }
 
 func refute(t *testing.T, a interface{}, b interface{}) {
-	if a == b {
+	if b == nil {
+		mustNotBeNil(t, a)
+	} else if a == b {
 		t.Errorf("Did not expect %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
 	}
 }
