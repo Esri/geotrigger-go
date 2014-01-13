@@ -7,7 +7,7 @@ import (
 )
 
 // A helpful method for unpacking values out of arbitrary JSON objects
-func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value interface{}) (error) {
+func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value interface{}) error {
 	if jsonObject == nil {
 		return errors.New("Attempt to get value from a nil JSON object.")
 	}
@@ -25,7 +25,7 @@ func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value
 }
 
 // A helpful method for unpacking values out of arbitrary JSON arrays
-func GetValueFromJSONArray(jsonArray []interface{}, index int, value interface{}) (error) {
+func GetValueFromJSONArray(jsonArray []interface{}, index int, value interface{}) error {
 	if jsonArray == nil {
 		return errors.New("Attempt to get value from a nil JSON aray.")
 	}

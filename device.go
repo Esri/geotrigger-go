@@ -162,7 +162,7 @@ func (device *device) geotriggerAPIRequest(route string, params map[string]inter
 }
 
 func (device *device) getSessionInfo() map[string]string {
-	return map[string]string {
+	return map[string]string{
 		"access_token":  device.accessToken,
 		"refresh_token": device.refreshToken,
 		"device_id":     device.deviceId,
@@ -175,7 +175,9 @@ func (device *device) tokenManager() {
 	refreshInProgress := false
 	for {
 		statusCheck := <-device.refreshStatusChecks
-		if statusCheck.purpose == refreshFailed {
+
+		switch {
+		case statusCheck.purpose == refreshFailed:
 			nextAttempt := waitingChecks[0]
 			waitingChecks = waitingChecks[1:]
 
@@ -186,7 +188,7 @@ func (device *device) tokenManager() {
 				refreshInProgress = false
 				go device.accessApproved(nextAttempt)
 			}
-		} else if statusCheck.purpose == refreshComplete {
+		case statusCheck.purpose == refreshComplete:
 			if !refreshInProgress {
 				fmt.Println("Warning: refresh completed when we assumed none were occurring.")
 			}
@@ -208,15 +210,17 @@ func (device *device) tokenManager() {
 				currentResp := waitingCheck.resp
 				go func() {
 					currentResp <- &refreshStatusResponse{
-					token: device.accessToken, isAccessToken: true}
+						token:         device.accessToken,
+						isAccessToken: true,
+					}
 				}()
 			}
-		} else if refreshInProgress {
+		case refreshInProgress:
 			waitingChecks = append(waitingChecks, statusCheck)
-		} else if statusCheck.purpose == refreshNeeded {
+		case statusCheck.purpose == refreshNeeded:
 			refreshInProgress = true
 			go device.refreshApproved(statusCheck)
-		} else if statusCheck.purpose == accessNeeded {
+		case statusCheck.purpose == accessNeeded:
 			go device.accessApproved(statusCheck)
 		}
 	}
@@ -224,14 +228,14 @@ func (device *device) tokenManager() {
 
 func (device *device) accessApproved(statusCheck *refreshStatusCheck) {
 	statusCheck.resp <- &refreshStatusResponse{
-		token: device.accessToken,
+		token:         device.accessToken,
 		isAccessToken: true,
 	}
 }
 
 func (device *device) refreshApproved(statusCheck *refreshStatusCheck) {
 	statusCheck.resp <- &refreshStatusResponse{
-		token: device.refreshToken,
+		token:         device.refreshToken,
 		isAccessToken: false,
 	}
 }

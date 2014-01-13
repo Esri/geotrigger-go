@@ -1,16 +1,16 @@
 package geotrigger_golang
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"testing"
-	"io/ioutil"
 	"net/url"
-	"encoding/json"
 	"strings"
-	"time"
 	"sync"
+	"testing"
+	"time"
 )
 
 func TestRegisterFail(t *testing.T) {
@@ -80,11 +80,11 @@ func TestTokenRefresh(t *testing.T) {
 	defer agoUrlRestorer.restore()
 
 	testDevice := &device{
-		clientId: "good_client_id",
-		deviceId: "device_id",
-		accessToken: "old_access_token",
-		refreshToken: "good_refresh_token",
-		expiresIn : 4,
+		clientId:            "good_client_id",
+		deviceId:            "device_id",
+		accessToken:         "old_access_token",
+		refreshToken:        "good_refresh_token",
+		expiresIn:           4,
 		refreshStatusChecks: make(chan *refreshStatusCheck),
 	}
 
@@ -164,16 +164,16 @@ func TestFullWorkflowWithRefresh(t *testing.T) {
 
 	client, errChan := NewDeviceClient("good_client_id")
 
-	error := <- errChan
+	error := <-errChan
 	expect(t, error, nil)
 
-	params := map[string]interface{} {
+	params := map[string]interface{}{
 		"tags": "derp",
 	}
 	var responseJSON map[string]interface{}
 	errChan = client.Request("/some/route", params, &responseJSON)
 
-	err = <- errChan
+	err = <-errChan
 	expect(t, err, nil)
 	expect(t, responseJSON["triggers"].([]interface{})[0].(map[string]interface{})["triggerId"], "6fd01180fa1a012f27f1705681b27197")
 	expect(t, responseJSON["boundingBox"].(map[string]interface{})["xmax"], -122.45)
@@ -286,11 +286,45 @@ func TestRepeatedConcurrentBatchesOfRequestsWithRefresh(t *testing.T) {
 	expect(t, totalGoodTokenAttempts, 24)
 }
 
+func TestRecoveryFromErrorDuringRefreshWithRoutinesWaitingForAccess(t *testing.T) {
+	// This will spawn 4 go routines making requests with bad tokens.
+	// The first routine will fire away immediately, get the invalid token response
+	// from the geotrigger server, ask for permission to refresh, and start refreshing the token.
+	// After a delay, the other 3 routines will ask to use the access token,
+	// and end up waiting because a refresh is in progress.
+	// The first routine will get an error while refreshing, which it will report.
+	// The token manager routine will then promote the next routine in line to continue
+	// with its actions, prompting another refresh which this time will succeed.
+	// That refrsh will be communicated to the remaining routines waiting for a token,
+	// and they will go ahead and finish.
+	bt, gt := testRecoveryFromErrorDuringRefresh(t, nil, true)
+	expect(t, bt, 2)
+	expect(t, gt, 3)
+}
+
+func TestRecoveryFromErrorDuringRefreshWithRoutinesWaitingForRefresh(t *testing.T) {
+	// This will spawn 4 go routines making requests with bad tokens.
+	// Each routine will get permissions to present the access token to
+	// the geotrigger server.
+	// Whichever routine arrive first will receive the invalid token response will then ask for
+	// permission to refresh the token, and be granted that permission.
+	// The other 3 routines will also ask for permission to refresh, and instead
+	// end up waiting for a reply to that request.
+	// The first routine will get an error while refreshing, which it will report.
+	// The token manager routine will then promote the next routine in line to continue
+	// with its actions, prompting another refresh which this time will succeed.
+	// That refrsh will be communicated to the remaining routines waiting for a token,
+	// and they will go ahead and finish.
+	bt, gt := testRecoveryFromErrorDuringRefresh(t, nil, false)
+	expect(t, bt, 4)
+	expect(t, gt, 3)
+}
+
 func testConcurrentRefreshWaitingAtAccessStep(t *testing.T, client *Client) (int, int) {
 	// This will spawn 4 go routines making requests with bad tokens.
 	// The first routine will fire away immediately, get the invalid token response
 	// from the geotrigger server, ask for permission to refresh, and start refreshing the token.
-	// After a 1 second delay, the other 3 routines will ask to use the access token,
+	// After a delay, the other 3 routines will ask to use the access token,
 	// and end up waiting because a refresh is in progress.
 	// After the first routine successfully refreshes the token, the waiting
 	// routines will be give the message to continue by using the new access token.
@@ -301,7 +335,7 @@ func testConcurrentRefreshWaitingAtRefreshStep(t *testing.T, client *Client) (in
 	// This will spawn 4 go routines making requests with bad tokens.
 	// Each routine will get permissions to present the access token to
 	// the geotrigger server.
-	// The first routine to receive the invalid token response will then ask for
+	// Whichever routine arrives first will receive the invalid token response will then ask for
 	// permission to refresh the token, and be granted that permission.
 	// The other 3 routines will also ask for permission to refresh, and instead
 	// end up waiting for a reply to that request.
@@ -312,7 +346,7 @@ func testConcurrentRefreshWaitingAtRefreshStep(t *testing.T, client *Client) (in
 }
 
 // A big ugly func, separated out to avoid duplicating it
-func testConcurrentRefresh(t *testing.T, client *Client, pauseAfterFirstReq bool) (int, int){
+func testConcurrentRefresh(t *testing.T, client *Client, pauseAfterFirstReq bool) (int, int) {
 	if client == nil {
 		client = getValidDeviceClient(t)
 	}
@@ -326,7 +360,7 @@ func testConcurrentRefresh(t *testing.T, client *Client, pauseAfterFirstReq bool
 			t.Error("Too many refresh attempts! Should have only been 1.")
 		}
 
-		time.Sleep(3 * time.Second)
+		time.Sleep(80 * time.Millisecond)
 		expect(t, r.URL.Path, ago_token_route)
 		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
 		refute(t, r, nil)
@@ -384,26 +418,26 @@ func testConcurrentRefresh(t *testing.T, client *Client, pauseAfterFirstReq bool
 	}
 	defer gtUrlRestorer.restore()
 
-	params1 := map[string]interface{} {
+	params1 := map[string]interface{}{
 		"tags": "derp",
 	}
 	var responseJSON1 map[string]interface{}
-	params2 := map[string]interface{} {
+	params2 := map[string]interface{}{
 		"tags": "derp",
 	}
 	var responseJSON2 map[string]interface{}
-	params3 := map[string]interface{} {
+	params3 := map[string]interface{}{
 		"tags": "derp",
 	}
 	var responseJSON3 map[string]interface{}
-	params4 := map[string]interface{} {
+	params4 := map[string]interface{}{
 		"tags": "derp",
 	}
 	var responseJSON4 map[string]interface{}
 
 	errChan1 := client.Request("/some/route", params1, &responseJSON1)
 	if pauseAfterFirstReq {
-		time.Sleep(1 * time.Second)
+		time.Sleep(20 * time.Millisecond)
 	}
 	errChan2 := client.Request("/some/route", params2, &responseJSON2)
 	errChan3 := client.Request("/some/route", params3, &responseJSON3)
@@ -412,22 +446,22 @@ func testConcurrentRefresh(t *testing.T, client *Client, pauseAfterFirstReq bool
 	var w sync.WaitGroup
 	w.Add(4)
 	go func() {
-		error := <- errChan1
+		error := <-errChan1
 		expect(t, error, nil)
 		w.Done()
 	}()
 	go func() {
-		error := <- errChan2
+		error := <-errChan2
 		expect(t, error, nil)
 		w.Done()
 	}()
 	go func() {
-		error := <- errChan3
+		error := <-errChan3
 		expect(t, error, nil)
 		w.Done()
 	}()
 	go func() {
-		error := <- errChan4
+		error := <-errChan4
 		expect(t, error, nil)
 		w.Done()
 	}()
@@ -462,8 +496,150 @@ func getValidDeviceClient(t *testing.T) *Client {
 
 	client, errChan := NewDeviceClient("good_client_id")
 
-	error := <- errChan
+	error := <-errChan
 
 	expect(t, error, nil)
 	return client
+}
+
+func testRecoveryFromErrorDuringRefresh(t *testing.T, client *Client, pauseAfterFirstReq bool) (int, int) {
+	if client == nil {
+		client = getValidDeviceClient(t)
+	}
+
+	var refreshCount int
+	// a test server to represent AGO
+	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
+		refreshCount++
+
+		if refreshCount > 2 {
+			t.Error("Too many refresh attempts! Should have only been 2.")
+		}
+
+		time.Sleep(80 * time.Millisecond)
+		expect(t, r.URL.Path, ago_token_route)
+		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
+		refute(t, r, nil)
+		contents, _ := ioutil.ReadAll(r.Body)
+		refute(t, len(contents), 0)
+		vals, _ := url.ParseQuery(string(contents))
+		expect(t, len(vals), 4)
+		expect(t, vals.Get("client_id"), "good_client_id")
+		expect(t, vals.Get("f"), "json")
+		expect(t, vals.Get("grant_type"), "refresh_token")
+		expect(t, vals.Get("refresh_token"), "good_refresh_token")
+
+		if refreshCount == 1 {
+			fmt.Fprintln(res, `{"error":{"code":498,"message":"Invalid token."}}`)
+		} else if refreshCount == 2 {
+			fmt.Fprintln(res, `{"access_token":"refreshed_access_token","expires_in":1800}`)
+		}
+	}))
+	defer agoServer.Close()
+
+	// set the ago url to the url of our test server so we aren't hitting prod
+	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	if err != nil {
+		t.Error("Error during test setup: %s", err)
+	}
+	defer agoUrlRestorer.restore()
+
+	var oldAccessTokenUse, refreshedAccessTokenUse int
+	// a test server to represent the geotrigger server
+	gtServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
+		expect(t, r.URL.Path, "/some/route")
+		expect(t, r.Header.Get("Content-Type"), "application/json")
+		accessToken := r.Header.Get("Authorization")
+		expect(t, strings.Index(accessToken, "Bearer "), 0)
+		accessToken = strings.Split(accessToken, " ")[1]
+		refute(t, r, nil)
+		contents, _ := ioutil.ReadAll(r.Body)
+		refute(t, len(contents), 0)
+		var params map[string]interface{}
+		_ = json.Unmarshal(contents, &params)
+		expect(t, len(params), 1)
+		expect(t, params["tags"], "derp")
+
+		if accessToken == "good_access_token" {
+			oldAccessTokenUse++
+			fmt.Fprintln(res, `{"error":{"type":"invalidHeader","message":"invalid header or header value","headers":{"Authorization":[{"type":"invalid","message":"Invalid token."}]},"code":498}}`)
+		} else if accessToken == "refreshed_access_token" {
+			refreshedAccessTokenUse++
+			fmt.Fprintln(res, `{"triggers":[{"triggerId":"6fd01180fa1a012f27f1705681b27197","condition":{"direction":"enter","geo":{"geocode":"920 SW 3rd Ave, Portland, OR","driveTime":600,"context":{"locality":"Portland","region":"Oregon","country":"USA","zipcode":"97204"}}},"action":{"message":"Welcome to Portland - The Mayor","callback":"http://pdx.gov/welcome"},"tags":["foodcarts","citygreetings"]}],"boundingBox":{"xmin":-122.68,"ymin":45.53,"xmax":-122.45,"ymax":45.6}}`)
+		} else {
+			t.Error(fmt.Sprintf("Unexpected access token: %s", accessToken))
+		}
+	}))
+	defer gtServer.Close()
+
+	// set the geotrigger url to the url of our test server so we aren't hitting prod
+	gtUrlRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
+	if err != nil {
+		t.Error("Error during test setup: %s", err)
+	}
+	defer gtUrlRestorer.restore()
+
+	params1 := map[string]interface{}{
+		"tags": "derp",
+	}
+	var responseJSON1 map[string]interface{}
+	params2 := map[string]interface{}{
+		"tags": "derp",
+	}
+	var responseJSON2 map[string]interface{}
+	params3 := map[string]interface{}{
+		"tags": "derp",
+	}
+	var responseJSON3 map[string]interface{}
+	params4 := map[string]interface{}{
+		"tags": "derp",
+	}
+	var responseJSON4 map[string]interface{}
+
+	errChan1 := client.Request("/some/route", params1, &responseJSON1)
+	if pauseAfterFirstReq {
+		time.Sleep(20 * time.Millisecond)
+	}
+	errChan2 := client.Request("/some/route", params2, &responseJSON2)
+	errChan3 := client.Request("/some/route", params3, &responseJSON3)
+	errChan4 := client.Request("/some/route", params4, &responseJSON4)
+
+	var w sync.WaitGroup
+	var errorCount int
+	w.Add(4)
+	go func() {
+		error := <-errChan1
+		if error != nil {
+			errorCount++
+		}
+		w.Done()
+	}()
+	go func() {
+		error := <-errChan2
+		if error != nil {
+			errorCount++
+		}
+		w.Done()
+	}()
+	go func() {
+		error := <-errChan3
+		if error != nil {
+			errorCount++
+		}
+		w.Done()
+	}()
+	go func() {
+		error := <-errChan4
+		if error != nil {
+			errorCount++
+		}
+		w.Done()
+	}()
+	w.Wait()
+
+	// one and only one of these routines got an error during refresh
+	// the next one in line then refreshed
+	expect(t, errorCount, 1)
+
+	return oldAccessTokenUse, refreshedAccessTokenUse
 }
