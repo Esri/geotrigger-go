@@ -154,6 +154,11 @@ func TestValueGetters(t *testing.T) {
 	err = GetValueFromJSONArray(triggers, 0, &trigger)
 	expect(t, err, nil)
 
+	var tags []interface{}
+	err = GetValueFromJSONObject(trigger, "tags", &tags)
+	expect(t, err, nil)
+	expect(t, tags[0], "foodcarts")
+
 	var action map[string]interface{}
 	err = GetValueFromJSONObject(trigger, "action", &action)
 	expect(t, err, nil)
@@ -163,6 +168,12 @@ func TestValueGetters(t *testing.T) {
 	expect(t, err, nil)
 
 	expect(t, callback, "http://pdx.gov/welcome")
+
+	// works with empty interface
+	var emptyInterface interface{}
+	err = GetValueFromJSONObject(trigger, "triggerId", &emptyInterface)
+	expect(t, err, nil)
+	expect(t, emptyInterface, "6fd01180fa1a012f27f1705681b27197")
 
 	// provide nil array/object
 	var failureInterface interface{}
@@ -222,17 +233,12 @@ func TestValueGetters(t *testing.T) {
 	var wrongType1 BoundingBox
 	err = GetValueFromJSONObject(responseJSON, "triggers", &wrongType1)
 	refute(t, err, nil)
-	expect(t, err.Error(), "Provided reference to value of type geotrigger_golang.BoundingBox did not match actual type: []interface {}.")
+	expect(t, err.Error(), "Provided reference is to a value of type geotrigger_golang.BoundingBox that cannot be assigned to type found in JSON: []interface {}.")
 	expect(t, notAPointer3.Xmin, float64(0))
 
 	var wrongType2 []interface{}
 	err = GetValueFromJSONArray(triggers, 0, &wrongType2)
 	refute(t, err, nil)
-	expect(t, err.Error(), "Provided reference to value of type []interface {} did not match actual type: map[string]interface {}.")
+	expect(t, err.Error(), "Provided reference is to a value of type []interface {} that cannot be assigned to type found in JSON: map[string]interface {}.")
 	expect(t, notAPointer3.Xmin, float64(0))
-
-	var wrongType3 interface{}
-	err = GetValueFromJSONObject(trigger, "triggerId", &wrongType3)
-	expect(t, wrongType3, nil)
-	expect(t, err.Error(), "Provided reference to value of type interface {} did not match actual type: string.")
 }

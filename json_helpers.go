@@ -8,6 +8,10 @@ import (
 
 // A helpful method for unpacking values out of arbitrary JSON objects.
 // `value` should be a pointer to a value of the type you expect to retrieve.
+// Inner objects are of type `map[string]interface{}`.
+// Inner arrays are of type `[]interface{}`.
+// You can pass down a pointer to an `interface{}`, but then you are really better
+// off not using these helpers, as they use reflection to try and match types.
 func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value interface{}) error {
 	if jsonObject == nil {
 		return errors.New("Attempt to get value from a nil JSON object.")
@@ -27,6 +31,10 @@ func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value
 
 // A helpful method for unpacking values out of arbitrary JSON arrays
 // `value` should be a pointer to a value of the type you expect to retrieve.
+// Inner objects are of type `map[string]interface{}`.
+// Inner arrays are of type `[]interface{}`.
+// You can pass down a pointer to an `interface{}`, but then you are really better
+// off not using these helpers, as they use reflection to try and match types.
 func GetValueFromJSONArray(jsonArray []interface{}, index int, value interface{}) error {
 	if jsonArray == nil {
 		return errors.New("Attempt to get value from a nil JSON aray.")
@@ -53,8 +61,10 @@ func setVal(value interface{}, jsonVal interface{}) (err error) {
 
 	// compare that type to the type pulled from the JSON
 	actualType := reflect.TypeOf(jsonVal)
-	if actualType != expectedType {
-		return errors.New(fmt.Sprintf("Provided reference to value of type %s did not match actual type: %s.",
+
+	if !actualType.AssignableTo(expectedType) {
+		return errors.New(fmt.Sprintf(
+			"Provided reference is to a value of type %s that cannot be assigned to type found in JSON: %s.",
 			expectedType, actualType))
 	}
 
