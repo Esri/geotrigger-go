@@ -42,7 +42,6 @@ type Session interface {
 	// `client_id`
 	GetSessionInfo() map[string]string
 	requestAccess(chan error)
-	tokenManager()
 }
 
 type ErrorResponse struct {
@@ -54,16 +53,8 @@ type ErrorJSON struct {
 	Message string `json:"message"`
 }
 
+// func type for passing in to `post`. called when we get a 498 invalid token
 type refreshHandler func() (string, error)
-
-func sessionInit(session Session) (errorChan chan error){
-	errorChan = make(chan error)
-
-	go session.tokenManager()
-	go session.requestAccess(errorChan)
-
-	return
-}
 
 func agoPost(route string, body []byte, responseJSON interface{}) error {
 	req, err := http.NewRequest("POST", ago_base_url+route, bytes.NewReader(body))

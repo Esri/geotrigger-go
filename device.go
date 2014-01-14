@@ -8,30 +8,10 @@ import (
 )
 
 type device struct {
-	clientId            string
-	deviceId            string
-	accessToken         string
-	refreshToken        string
-	expiresIn           int
-	refreshStatusChecks chan *refreshStatusCheck
-}
-
-/* consts and structs for channel coordination */
-const (
-	accessNeeded    = iota
-	refreshNeeded   = iota
-	refreshComplete = iota
-	refreshFailed   = iota
-)
-
-type refreshStatusCheck struct {
-	purpose int
-	resp    chan *refreshStatusResponse
-}
-
-type refreshStatusResponse struct {
-	token         string
-	isAccessToken bool
+	TokenManager
+	clientId      string
+	deviceId      string
+	expiresIn     int
 }
 
 /* Device JSON structs */
@@ -63,8 +43,8 @@ func (device *device) Request(route string, params map[string]interface{}, respo
 
 func (device *device) GetSessionInfo() map[string]string {
 	return map[string]string{
-		"access_token":  device.accessToken,
-		"refresh_token": device.refreshToken,
+		"access_token":  device.getAccessToken(),
+		"refresh_token": device.getRefreshToken(),
 		"device_id":     device.deviceId,
 		"client_id":     device.clientId,
 	}
@@ -72,11 +52,13 @@ func (device *device) GetSessionInfo() map[string]string {
 
 func newDevice(clientId string) (Session, chan error) {
 	device := &device{
-		clientId:            clientId,
-		refreshStatusChecks: make(chan *refreshStatusCheck),
+		clientId:      clientId,
 	}
 
-	return device, sessionInit(device)
+	errorChan := make(chan error)
+	go device.requestAccess(errorChan)
+
+	return device, errorChan
 }
 
 func (device *device) requestAccess(errorChan chan error) {
@@ -95,22 +77,24 @@ func (device *device) requestAccess(errorChan chan error) {
 	}
 
 	device.deviceId = deviceRegisterResponse.DeviceJSON.DeviceId
-	device.accessToken = deviceRegisterResponse.DeviceTokenJSON.AccessToken
-	device.refreshToken = deviceRegisterResponse.DeviceTokenJSON.RefreshToken
 	device.expiresIn = deviceRegisterResponse.DeviceTokenJSON.ExpiresIn
+	device.TokenManager = newTokenManager(deviceRegisterResponse.DeviceTokenJSON.AccessToken,
+		deviceRegisterResponse.DeviceTokenJSON.RefreshToken)
+
+	go device.manageTokens()
 
 	go func() {
 		errorChan <- nil
 	}()
 }
 
-func (device *device) refresh() error {
+func (device *device) refresh(refreshToken string) error {
 	// prep values
 	values := url.Values{}
 	values.Set("client_id", device.clientId)
 	values.Set("f", "json")
 	values.Set("grant_type", "refresh_token")
-	values.Set("refresh_token", device.refreshToken)
+	values.Set("refresh_token", refreshToken)
 
 	// make request
 	var tokenRefreshResponse TokenRefreshResponse
@@ -119,66 +103,10 @@ func (device *device) refresh() error {
 	}
 
 	// store the new access token
-	device.accessToken = tokenRefreshResponse.AccessToken
+	device.setAccessToken(tokenRefreshResponse.AccessToken)
 	device.expiresIn = tokenRefreshResponse.ExpiresIn
 
 	return nil
-}
-
-func (device *device) tokenManager() {
-	var waitingChecks []*refreshStatusCheck
-	refreshInProgress := false
-	for {
-		statusCheck := <-device.refreshStatusChecks
-
-		switch {
-		case statusCheck.purpose == refreshFailed:
-			nextAttempt := waitingChecks[0]
-			waitingChecks = waitingChecks[1:]
-
-			if nextAttempt.purpose == refreshNeeded {
-				refreshInProgress = true
-				go device.refreshApproved(nextAttempt)
-			} else if nextAttempt.purpose == accessNeeded {
-				refreshInProgress = false
-				go device.accessApproved(nextAttempt)
-			}
-		case statusCheck.purpose == refreshComplete:
-			if !refreshInProgress {
-				fmt.Println("Warning: refresh completed when we assumed none were occurring.")
-			}
-			refreshInProgress = false
-
-			// copy status checks to new slice for iterating
-			currentWaitingChecks := make([]*refreshStatusCheck, len(waitingChecks))
-			copy(currentWaitingChecks, waitingChecks)
-
-			// clear main status checks slice (as we might get more added shortly)
-			waitingChecks = waitingChecks[:0]
-
-			for _, waitingCheck := range currentWaitingChecks {
-				// get a ref to the channel from outside the routine,
-				// otherwise, the loop will have moved forward by the time you
-				// access the channel. `range` reuses memory addresses for each
-				// iteration, so you would end up using the channel for a different
-				// object in the array.
-				currentResp := waitingCheck.resp
-				go func() {
-					currentResp <- &refreshStatusResponse{
-						token:         device.accessToken,
-						isAccessToken: true,
-					}
-				}()
-			}
-		case refreshInProgress:
-			waitingChecks = append(waitingChecks, statusCheck)
-		case statusCheck.purpose == refreshNeeded:
-			refreshInProgress = true
-			go device.refreshApproved(statusCheck)
-		case statusCheck.purpose == accessNeeded:
-			go device.accessApproved(statusCheck)
-		}
-	}
 }
 
 func (device *device) request(route string, params map[string]interface{},
@@ -192,67 +120,40 @@ func (device *device) request(route string, params map[string]interface{},
 		return
 	}
 
+	// This func gets a blocking call if we get a 498 from the geotrigger server
 	var refreshFunc refreshHandler = func() (string, error) {
-		statusCheck := &refreshStatusCheck{
-			purpose: refreshNeeded,
-			resp:    make(chan *refreshStatusResponse),
-		}
-		device.refreshStatusChecks <- statusCheck
+		tr := newTokenRequest(refreshNeeded, true)
+		go device.tokenRequest(tr)
 
-		statusResp := <-statusCheck.resp
+		tokenResp := <-tr.tokenResponses
 
-		if statusResp.isAccessToken {
-			return statusResp.token, nil
+		if tokenResp.isAccessToken {
+			return tokenResp.token, nil
 		}
 
-		if err = device.refresh(); err == nil {
-			accessToken := device.accessToken
-			refreshSuccess := &refreshStatusCheck{
-				purpose: refreshComplete,
-				resp:    nil,
-			}
-			go func() {
-				device.refreshStatusChecks <- refreshSuccess
-			}()
 
-			return accessToken, nil
+		error := device.refresh(tokenResp.token)
+		var refreshResult *tokenRequest
+		var accessToken string
+		if error == nil {
+			accessToken = device.getAccessToken()
+			refreshResult = newTokenRequest(refreshComplete, false)
 		} else {
-			refreshFailure := &refreshStatusCheck{
-				purpose: refreshFailed,
-				resp:    nil,
-			}
-			go func() {
-				device.refreshStatusChecks <- refreshFailure
-			}()
-
-			return "", err
+			refreshResult = newTokenRequest(refreshFailed, false)
 		}
+
+		go device.tokenRequest(refreshResult)
+
+		return accessToken, error
 	}
 
-	statusCheck := &refreshStatusCheck{
-		purpose: accessNeeded,
-		resp:    make(chan *refreshStatusResponse),
-	}
-	device.refreshStatusChecks <- statusCheck
+	tr := newTokenRequest(accessNeeded, true)
+	go device.tokenRequest(tr)
 
-	statusResp := <-statusCheck.resp
-	err = geotriggerPost(route, payload, responseJSON, statusResp.token, refreshFunc)
+	tokenResp := <-tr.tokenResponses
+	err = geotriggerPost(route, payload, responseJSON, tokenResp.token, refreshFunc)
 
 	go func() {
 		errorChan <- err
 	}()
-}
-
-func (device *device) accessApproved(statusCheck *refreshStatusCheck) {
-	statusCheck.resp <- &refreshStatusResponse{
-		token:         device.accessToken,
-		isAccessToken: true,
-	}
-}
-
-func (device *device) refreshApproved(statusCheck *refreshStatusCheck) {
-	statusCheck.resp <- &refreshStatusResponse{
-		token:         device.refreshToken,
-		isAccessToken: false,
-	}
 }

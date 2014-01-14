@@ -80,20 +80,18 @@ func TestTokenRefresh(t *testing.T) {
 	defer agoUrlRestorer.restore()
 
 	testDevice := &device{
-		clientId:            "good_client_id",
-		deviceId:            "device_id",
-		accessToken:         "old_access_token",
-		refreshToken:        "good_refresh_token",
-		expiresIn:           4,
-		refreshStatusChecks: make(chan *refreshStatusCheck),
+		TokenManager:  newTokenManager("old_access_token", "good_refresh_token"),
+		clientId:      "good_client_id",
+		deviceId:      "device_id",
+		expiresIn:     4,
 	}
 
-	err = testDevice.refresh()
+	err = testDevice.refresh("good_refresh_token")
 	expect(t, err, nil)
 	expect(t, testDevice.expiresIn, 1800)
-	expect(t, testDevice.accessToken, "refreshed_access_token")
+	expect(t, testDevice.getAccessToken(), "refreshed_access_token")
 	expect(t, testDevice.clientId, "good_client_id")
-	expect(t, testDevice.refreshToken, "good_refresh_token")
+	expect(t, testDevice.getRefreshToken(), "good_refresh_token")
 }
 
 func TestFullWorkflowWithRefresh(t *testing.T) {
@@ -287,7 +285,7 @@ func TestRecoveryFromErrorDuringRefreshWithRoutinesWaitingForAccess(t *testing.T
 	// The first routine will get an error while refreshing, which it will report.
 	// The token manager routine will then promote the next routine in line to continue
 	// with its actions, prompting another refresh which this time will succeed.
-	// That refrsh will be communicated to the remaining routines waiting for a token,
+	// That refresh will be communicated to the remaining routines waiting for a token,
 	// and they will go ahead and finish.
 	bt, gt := testRecoveryFromErrorDuringRefresh(t, nil, true)
 	expect(t, bt, 2)
@@ -305,7 +303,7 @@ func TestRecoveryFromErrorDuringRefreshWithRoutinesWaitingForRefresh(t *testing.
 	// The first routine will get an error while refreshing, which it will report.
 	// The token manager routine will then promote the next routine in line to continue
 	// with its actions, prompting another refresh which this time will succeed.
-	// That refrsh will be communicated to the remaining routines waiting for a token,
+	// That refresh will be communicated to the remaining routines waiting for a token,
 	// and they will go ahead and finish.
 	bt, gt := testRecoveryFromErrorDuringRefresh(t, nil, false)
 	expect(t, bt, 4)
@@ -494,6 +492,7 @@ func getValidDeviceClient(t *testing.T) *Client {
 	return client
 }
 
+// was easier to duplicate this guy for the few changes needed to support test case
 func testRecoveryFromErrorDuringRefresh(t *testing.T, client *Client, pauseAfterFirstReq bool) (int, int) {
 	if client == nil {
 		client = getValidDeviceClient(t)

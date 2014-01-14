@@ -1,9 +1,9 @@
 package geotrigger_golang
 
 type application struct {
+	TokenManager
 	clientId     string
 	clientSecret string
-	accessToken  string
 	expiresIn    int
 }
 
@@ -16,7 +16,7 @@ func (application *application) Request(route string, params map[string]interfac
 
 func (application *application) GetSessionInfo() map[string]string {
 	return map[string]string{
-		"access_token":  application.accessToken,
+		"access_token":  application.getAccessToken(),
 		"client_id":     application.clientId,
 		"client_secret": application.clientSecret,
 	}
@@ -28,10 +28,14 @@ func newApplication(clientId string, clientSecret string) (Session, chan error) 
 		clientSecret: clientSecret,
 	}
 
-	return application, sessionInit(application)
+	errorChan := make(chan error)
+	go application.requestAccess(errorChan)
+
+	return application, errorChan
 }
 
 func (application *application) requestAccess(errorChan chan error) {
+	// TODO: set up token manager and access token here
 	return
 }
 
