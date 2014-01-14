@@ -17,13 +17,13 @@ type TokenManager interface {
 
 type tokenManager struct {
 	tokenRequests chan *tokenRequest
-	accessToken string
-	refreshToken string
+	accessToken   string
+	refreshToken  string
 }
 
 /* consts and structs for channel coordination */
 const (
-	accessNeeded    = iota
+	accessNeeded = iota
 	refreshNeeded
 	refreshComplete
 	refreshFailed
@@ -40,10 +40,10 @@ type tokenResponse struct {
 }
 
 func newTokenManager(accessToken string, refreshToken string) TokenManager {
-	return &tokenManager {
+	return &tokenManager{
 		tokenRequests: make(chan *tokenRequest),
-		accessToken: accessToken,
-		refreshToken: refreshToken,
+		accessToken:   accessToken,
+		refreshToken:  refreshToken,
 	}
 }
 
@@ -99,14 +99,14 @@ func (tm *tokenManager) manageTokens() {
 			}
 			refreshInProgress = false
 
-			// copy status checks to new slice for iterating
-			currentWaitingChecks := make([]*tokenRequest, len(waitingRequests))
-			copy(currentWaitingChecks, waitingRequests)
+			// copy waiting token requests to new slice for iterating
+			currentWaitingReqs := make([]*tokenRequest, len(waitingRequests))
+			copy(currentWaitingReqs, waitingRequests)
 
 			// clear main status checks slice (as we might get more added shortly)
 			waitingRequests = waitingRequests[:0]
 
-			for _, waitingReq := range currentWaitingChecks {
+			for _, waitingReq := range currentWaitingReqs {
 				go tokenApproved(waitingReq, tm.accessToken, true)
 			}
 		case refreshInProgress:

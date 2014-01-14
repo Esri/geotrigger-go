@@ -153,7 +153,7 @@ func errorCheck(resp []byte) *ErrorResponse {
 
 func parseJSONResponse(resp []byte, responseJSON interface{}) error {
 	t := reflect.TypeOf(responseJSON)
-	if t.Kind() != reflect.Ptr {
+	if t == nil || t.Kind() != reflect.Ptr {
 		return errors.New(fmt.Sprintf("Provided responseJSON interface should be a pointer (to struct or map)."))
 	}
 

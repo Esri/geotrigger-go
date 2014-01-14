@@ -6,7 +6,8 @@ import (
 	"reflect"
 )
 
-// A helpful method for unpacking values out of arbitrary JSON objects
+// A helpful method for unpacking values out of arbitrary JSON objects.
+// `value` should be a pointer to a value of the type you expect to retrieve.
 func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value interface{}) error {
 	if jsonObject == nil {
 		return errors.New("Attempt to get value from a nil JSON object.")
@@ -25,6 +26,7 @@ func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value
 }
 
 // A helpful method for unpacking values out of arbitrary JSON arrays
+// `value` should be a pointer to a value of the type you expect to retrieve.
 func GetValueFromJSONArray(jsonArray []interface{}, index int, value interface{}) error {
 	if jsonArray == nil {
 		return errors.New("Attempt to get value from a nil JSON aray.")
@@ -42,7 +44,7 @@ func GetValueFromJSONArray(jsonArray []interface{}, index int, value interface{}
 func setVal(value interface{}, jsonVal interface{}) (err error) {
 	// make sure the interface provided is a pointer, so that we can modify the value
 	expectedType := reflect.TypeOf(value)
-	if expectedType.Kind() != reflect.Ptr {
+	if expectedType == nil || expectedType.Kind() != reflect.Ptr {
 		return errors.New("Provided value is of invalid type (must be pointer).")
 	}
 

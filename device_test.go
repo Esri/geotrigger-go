@@ -80,10 +80,10 @@ func TestTokenRefresh(t *testing.T) {
 	defer agoUrlRestorer.restore()
 
 	testDevice := &device{
-		TokenManager:  newTokenManager("old_access_token", "good_refresh_token"),
-		clientId:      "good_client_id",
-		deviceId:      "device_id",
-		expiresIn:     4,
+		TokenManager: newTokenManager("old_access_token", "good_refresh_token"),
+		clientId:     "good_client_id",
+		deviceId:     "device_id",
+		expiresIn:    4,
 	}
 
 	err = testDevice.refresh("good_refresh_token")
@@ -175,33 +175,6 @@ func TestFullWorkflowWithRefresh(t *testing.T) {
 	expect(t, err, nil)
 	expect(t, responseJSON["triggers"].([]interface{})[0].(map[string]interface{})["triggerId"], "6fd01180fa1a012f27f1705681b27197")
 	expect(t, responseJSON["boundingBox"].(map[string]interface{})["xmax"], -122.45)
-
-	// test GetValueFromJSONObject and GetValueFromJSONArray a bit
-	var triggers []interface{}
-	err = GetValueFromJSONObject(responseJSON, "triggers", &triggers)
-	if err != nil {
-		t.Error("Error while unpacking JSON:", err)
-	}
-
-	var trigger map[string]interface{}
-	err = GetValueFromJSONArray(triggers, 0, &trigger)
-	if err != nil {
-		t.Error("Error while unpacking JSON:", err)
-	}
-
-	var action map[string]interface{}
-	err = GetValueFromJSONObject(trigger, "action", &action)
-	if err != nil {
-		t.Error("Error while unpacking JSON:", err)
-	}
-
-	var callback string
-	err = GetValueFromJSONObject(action, "callback", &callback)
-	if err != nil {
-		t.Error("Error while unpacking JSON:", err)
-	}
-
-	expect(t, callback, "http://pdx.gov/welcome")
 }
 
 func TestConcurrentRefreshWaitingAtAccessStep(t *testing.T) {

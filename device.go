@@ -9,9 +9,9 @@ import (
 
 type device struct {
 	TokenManager
-	clientId      string
-	deviceId      string
-	expiresIn     int
+	clientId  string
+	deviceId  string
+	expiresIn int
 }
 
 /* Device JSON structs */
@@ -52,7 +52,7 @@ func (device *device) GetSessionInfo() map[string]string {
 
 func newDevice(clientId string) (Session, chan error) {
 	device := &device{
-		clientId:      clientId,
+		clientId: clientId,
 	}
 
 	errorChan := make(chan error)
@@ -130,7 +130,6 @@ func (device *device) request(route string, params map[string]interface{},
 		if tokenResp.isAccessToken {
 			return tokenResp.token, nil
 		}
-
 
 		error := device.refresh(tokenResp.token)
 		var refreshResult *tokenRequest
