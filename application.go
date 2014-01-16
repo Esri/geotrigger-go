@@ -39,10 +39,6 @@ func (application *application) requestAccess(errorChan chan error) {
 	return
 }
 
-func (application *application) tokenManager() {
-	return
-}
-
 func (application *application) request(route string, params map[string]interface{},
 	responseJSON interface{}, errorChan chan error) {
 	errorChan <- nil

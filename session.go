@@ -25,7 +25,7 @@ const ago_register_route = "/sharing/oauth2/registerDevice"
 type Session interface {
 	// The method to use for making requests!
 	// `responseJSON` can be a struct modeling the expected JSON, or an arbitrary JSON map (map[string]interface{})
-	// that can be used with the helper method `GetValueFromJSONObject`.
+	// that can be used with the helper methods `GetValueFromJSONObject` and `GetValueFromJSONArray`.
 	// The channel that is returned will be written to once. If the read value is a nil,
 	// then the provided responseJSON has been successfully inflated and is ready for use.
 	// Otherwise, the error will contain information about what went wrong.

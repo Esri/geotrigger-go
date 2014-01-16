@@ -89,7 +89,7 @@ func setVal(value interface{}, jsonVal interface{}) (err error) {
 	// Elem() gets the value being pointed to,
 	v := pv.Elem()
 	// and we can set it directly to what we found in the JSON, since we
-	// have already checked that they are the same type.
+	// have already checked that they the JSON value is assignable.
 	v.Set(reflect.ValueOf(jsonVal))
 	return
 }
