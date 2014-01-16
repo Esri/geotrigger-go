@@ -26,6 +26,7 @@ type Session interface {
 	// The method to use for making requests!
 	// `responseJSON` can be a struct modeling the expected JSON, or an arbitrary JSON map (map[string]interface{})
 	// that can be used with the helper methods `GetValueFromJSONObject` and `GetValueFromJSONArray`.
+	// `route` should start with a slash.
 	// The channel that is returned will be written to once. If the read value is a nil,
 	// then the provided responseJSON has been successfully inflated and is ready for use.
 	// Otherwise, the error will contain information about what went wrong.
@@ -41,7 +42,10 @@ type Session interface {
 	// `device_id`
 	// `client_id`
 	GetSessionInfo() map[string]string
-	requestAccess(chan error)
+	// A session is also a TokenManager
+	TokenManager
+	// used internally when token expires
+	refresh(string) error
 }
 
 type ErrorResponse struct {
@@ -56,6 +60,55 @@ type ErrorJSON struct {
 // func type for passing in to `post`. called when we get a 498 invalid token
 type refreshHandler func() (string, error)
 
+func geotriggerPost(session Session, route string, params map[string]interface{}, responseJSON interface{}) error {
+	body, err := json.Marshal(params)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error while marshaling params into JSON for route: %s. %s",
+			route, err))
+	}
+
+	// This func gets a blocking call if we get a 498 from the geotrigger server
+	var refreshFunc refreshHandler = func() (string, error) {
+		tr := newTokenRequest(refreshNeeded, true)
+		go session.tokenRequest(tr)
+
+		tokenResp := <-tr.tokenResponses
+
+		if tokenResp.isAccessToken {
+			return tokenResp.token, nil
+		}
+
+		error := session.refresh(tokenResp.token)
+		var refreshResult *tokenRequest
+		var accessToken string
+		if error == nil {
+			accessToken = session.getAccessToken()
+			refreshResult = newTokenRequest(refreshComplete, false)
+		} else {
+			refreshResult = newTokenRequest(refreshFailed, false)
+		}
+
+		go session.tokenRequest(refreshResult)
+
+		return accessToken, error
+	}
+
+	tr := newTokenRequest(accessNeeded, true)
+	go session.tokenRequest(tr)
+
+	tokenResp := <-tr.tokenResponses
+
+	req, err := http.NewRequest("POST", geotrigger_base_url+route, bytes.NewReader(body))
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error creating GeotriggerPost for route %s. %s", route, err))
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenResp.token))
+	req.Header.Set("Content-Type", "application/json")
+
+	return post(req, body, responseJSON, refreshFunc)
+}
+
 func agoPost(route string, body []byte, responseJSON interface{}) error {
 	req, err := http.NewRequest("POST", ago_base_url+route, bytes.NewReader(body))
 	if err != nil {
@@ -66,19 +119,6 @@ func agoPost(route string, body []byte, responseJSON interface{}) error {
 	return post(req, body, responseJSON, func() (string, error) {
 		return "", errors.New("Expired token response from AGO. This is basically a 500.")
 	})
-}
-
-func geotriggerPost(route string, body []byte, responseJSON interface{}, accessToken string,
-	refreshFunc refreshHandler) error {
-	req, err := http.NewRequest("POST", geotrigger_base_url+route, bytes.NewReader(body))
-	if err != nil {
-		return errors.New(fmt.Sprintf("Error creating GeotriggerPost for route %s. %s", route, err))
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
-	req.Header.Set("Content-Type", "application/json")
-
-	return post(req, body, responseJSON, refreshFunc)
 }
 
 func post(req *http.Request, body []byte, responseJSON interface{}, refreshFunc refreshHandler) error {

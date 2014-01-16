@@ -1,9 +1,6 @@
 package geotrigger_golang
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
 	"net/url"
 )
 
@@ -30,14 +27,16 @@ type DeviceJSON struct {
 	DeviceId string `json:"deviceId"`
 }
 
-type TokenRefreshResponse struct {
+type DeviceRefreshResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int    `json:"expires_in"`
 }
 
 func (device *device) Request(route string, params map[string]interface{}, responseJSON interface{}) chan error {
 	errorChan := make(chan error)
-	go device.request(route, params, responseJSON, errorChan)
+	go func() {
+		errorChan <- geotriggerPost(device, route, params, responseJSON)
+	}()
 	return errorChan
 }
 
@@ -56,12 +55,12 @@ func newDevice(clientId string) (Session, chan error) {
 	}
 
 	errorChan := make(chan error)
-	go device.requestAccess(errorChan)
+	go device.register(errorChan)
 
 	return device, errorChan
 }
 
-func (device *device) requestAccess(errorChan chan error) {
+func (device *device) register(errorChan chan error) {
 	// prep values
 	values := url.Values{}
 	values.Set("client_id", device.clientId)
@@ -97,62 +96,14 @@ func (device *device) refresh(refreshToken string) error {
 	values.Set("refresh_token", refreshToken)
 
 	// make request
-	var tokenRefreshResponse TokenRefreshResponse
-	if err := agoPost(ago_token_route, []byte(values.Encode()), &tokenRefreshResponse); err != nil {
+	var refreshResponse DeviceRefreshResponse
+	if err := agoPost(ago_token_route, []byte(values.Encode()), &refreshResponse); err != nil {
 		return err
 	}
 
 	// store the new access token
-	device.setAccessToken(tokenRefreshResponse.AccessToken)
-	device.expiresIn = tokenRefreshResponse.ExpiresIn
+	device.setAccessToken(refreshResponse.AccessToken)
+	device.expiresIn = refreshResponse.ExpiresIn
 
 	return nil
-}
-
-func (device *device) request(route string, params map[string]interface{},
-	responseJSON interface{}, errorChan chan error) {
-	payload, err := json.Marshal(params)
-	if err != nil {
-		go func() {
-			errorChan <- errors.New(fmt.Sprintf("Error while marshaling params into JSON for route: %s. %s",
-				route, err))
-		}()
-		return
-	}
-
-	// This func gets a blocking call if we get a 498 from the geotrigger server
-	var refreshFunc refreshHandler = func() (string, error) {
-		tr := newTokenRequest(refreshNeeded, true)
-		go device.tokenRequest(tr)
-
-		tokenResp := <-tr.tokenResponses
-
-		if tokenResp.isAccessToken {
-			return tokenResp.token, nil
-		}
-
-		error := device.refresh(tokenResp.token)
-		var refreshResult *tokenRequest
-		var accessToken string
-		if error == nil {
-			accessToken = device.getAccessToken()
-			refreshResult = newTokenRequest(refreshComplete, false)
-		} else {
-			refreshResult = newTokenRequest(refreshFailed, false)
-		}
-
-		go device.tokenRequest(refreshResult)
-
-		return accessToken, error
-	}
-
-	tr := newTokenRequest(accessNeeded, true)
-	go device.tokenRequest(tr)
-
-	tokenResp := <-tr.tokenResponses
-	err = geotriggerPost(route, payload, responseJSON, tokenResp.token, refreshFunc)
-
-	go func() {
-		errorChan <- err
-	}()
 }
