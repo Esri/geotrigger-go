@@ -55,6 +55,7 @@ type WrongJSON struct {
 
 /* editing these will break tests */
 var triggerListData = []byte(`{"triggers":[{"triggerId":"6fd01180fa1a012f27f1705681b27197","condition":{"direction":"enter","geo":{"geocode":"920 SW 3rd Ave, Portland, OR","driveTime":600,"context":{"locality":"Portland","region":"Oregon","country":"USA","zipcode":"97204"}}},"action":{"message":"Welcome to Portland - The Mayor","callback":"http://pdx.gov/welcome"},"tags":["foodcarts","citygreetings"]}],"boundingBox":{"xmin":-122.68,"ymin":45.53,"xmax":-122.45,"ymax":45.6}}`)
+
 // missing geo[drivetime], context[region], trigger[tags] and boundingBox[xmax]
 var partialTriggerListData = []byte(`{"triggers":[{"triggerId":"6fd01180fa1a012f27f1705681b27197","condition":{"direction":"enter","geo":{"geocode":"920 SW 3rd Ave, Portland, OR","context":{"locality":"Portland","country":"USA","zipcode":"97204"}}},"action":{"message":"Welcome to Portland - The Mayor","callback":"http://pdx.gov/welcome"}}],"boundingBox":{"xmin":-122.68,"ymin":45.53,"ymax":45.6}}`)
 var jsonArrayData = []byte(`["herp", "derp", "dorp"]`)

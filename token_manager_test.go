@@ -21,25 +21,25 @@ func TestSimpleTokenRequest(t *testing.T) {
 	go tm.manageTokens()
 
 	// access token req
-	tr := &tokenRequest {
-		purpose: accessNeeded,
+	tr := &tokenRequest{
+		purpose:        accessNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 	go tm.tokenRequest(tr)
 
-	tokenResp := <- tr.tokenResponses
+	tokenResp := <-tr.tokenResponses
 	refute(t, tokenResp, nil)
 	expect(t, tokenResp.isAccessToken, true)
 	expect(t, tokenResp.token, "derp")
 
 	// refresh token req
-	tr = &tokenRequest {
-		purpose: refreshNeeded,
+	tr = &tokenRequest{
+		purpose:        refreshNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 	go tm.tokenRequest(tr)
 
-	tokenResp = <- tr.tokenResponses
+	tokenResp = <-tr.tokenResponses
 	refute(t, tokenResp, nil)
 	expect(t, tokenResp.isAccessToken, false)
 	expect(t, tokenResp.token, "herp")
@@ -49,13 +49,13 @@ func TestUnknownPurposeInt(t *testing.T) {
 	tm := newTokenManager("derp", "herp")
 	go tm.manageTokens()
 
-	tr := &tokenRequest {
-		purpose: 39846,
+	tr := &tokenRequest{
+		purpose:        39846,
 		tokenResponses: make(chan *tokenResponse),
 	}
 	go tm.tokenRequest(tr)
 
-	tokenResp := <- tr.tokenResponses
+	tokenResp := <-tr.tokenResponses
 	expect(t, tokenResp, nil)
 }
 
@@ -63,23 +63,23 @@ func TestConcurrentTokenAccess(t *testing.T) {
 	tm := newTokenManager("derp", "herp")
 	go tm.manageTokens()
 
-	tr1 := &tokenRequest {
-		purpose: accessNeeded,
+	tr1 := &tokenRequest{
+		purpose:        accessNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr2 := &tokenRequest {
-		purpose: accessNeeded,
+	tr2 := &tokenRequest{
+		purpose:        accessNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr3 := &tokenRequest {
-		purpose: accessNeeded,
+	tr3 := &tokenRequest{
+		purpose:        accessNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr4 := &tokenRequest {
-		purpose: accessNeeded,
+	tr4 := &tokenRequest{
+		purpose:        accessNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
@@ -91,28 +91,28 @@ func TestConcurrentTokenAccess(t *testing.T) {
 	var w sync.WaitGroup
 	w.Add(4)
 	go func() {
-		tokenResp := <- tr1.tokenResponses
+		tokenResp := <-tr1.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr2.tokenResponses
+		tokenResp := <-tr2.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr3.tokenResponses
+		tokenResp := <-tr3.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr4.tokenResponses
+		tokenResp := <-tr4.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
@@ -126,23 +126,23 @@ func TestMultipleRoutinesNeedRefreshToken(t *testing.T) {
 	go tm.manageTokens()
 
 	// refresh succeeds first
-	tr1 := &tokenRequest {
-		purpose: refreshNeeded,
+	tr1 := &tokenRequest{
+		purpose:        refreshNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr2 := &tokenRequest {
-		purpose: refreshNeeded,
+	tr2 := &tokenRequest{
+		purpose:        refreshNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr3 := &tokenRequest {
-		purpose: refreshNeeded,
+	tr3 := &tokenRequest{
+		purpose:        refreshNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr4 := &tokenRequest {
-		purpose: refreshNeeded,
+	tr4 := &tokenRequest{
+		purpose:        refreshNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
@@ -155,34 +155,34 @@ func TestMultipleRoutinesNeedRefreshToken(t *testing.T) {
 	var w sync.WaitGroup
 	w.Add(4)
 	go func() {
-		tokenResp := <- tr2.tokenResponses
+		tokenResp := <-tr2.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr3.tokenResponses
+		tokenResp := <-tr3.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr4.tokenResponses
+		tokenResp := <-tr4.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr1.tokenResponses
+		tokenResp := <-tr1.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, false)
 		expect(t, tokenResp.token, "herp")
 
-		rc := &tokenRequest {
-			purpose: refreshComplete,
+		rc := &tokenRequest{
+			purpose:        refreshComplete,
 			tokenResponses: nil,
 		}
 		go tm.tokenRequest(rc)
@@ -191,23 +191,23 @@ func TestMultipleRoutinesNeedRefreshToken(t *testing.T) {
 	w.Wait()
 
 	// refresh fails first
-	tr5 := &tokenRequest {
-		purpose: refreshNeeded,
+	tr5 := &tokenRequest{
+		purpose:        refreshNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr6 := &tokenRequest {
-		purpose: refreshNeeded,
+	tr6 := &tokenRequest{
+		purpose:        refreshNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr7 := &tokenRequest {
-		purpose: refreshNeeded,
+	tr7 := &tokenRequest{
+		purpose:        refreshNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr8 := &tokenRequest {
-		purpose: refreshNeeded,
+	tr8 := &tokenRequest{
+		purpose:        refreshNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
@@ -220,40 +220,40 @@ func TestMultipleRoutinesNeedRefreshToken(t *testing.T) {
 
 	w.Add(4)
 	go func() {
-		tokenResp := <- tr7.tokenResponses
+		tokenResp := <-tr7.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr8.tokenResponses
+		tokenResp := <-tr8.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr6.tokenResponses
+		tokenResp := <-tr6.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, false)
 		expect(t, tokenResp.token, "herp")
 
-		rc := &tokenRequest {
-			purpose: refreshComplete,
+		rc := &tokenRequest{
+			purpose:        refreshComplete,
 			tokenResponses: nil,
 		}
 		go tm.tokenRequest(rc)
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr5.tokenResponses
+		tokenResp := <-tr5.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, false)
 		expect(t, tokenResp.token, "herp")
 
-		rc := &tokenRequest {
-			purpose: refreshFailed,
+		rc := &tokenRequest{
+			purpose:        refreshFailed,
 			tokenResponses: nil,
 		}
 		go tm.tokenRequest(rc)
@@ -267,23 +267,23 @@ func TestRefreshWithMultipleRoutinesNeedAccessToken(t *testing.T) {
 	go tm.manageTokens()
 
 	// refresh succeeds first
-	tr1 := &tokenRequest {
-		purpose: refreshNeeded,
+	tr1 := &tokenRequest{
+		purpose:        refreshNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr2 := &tokenRequest {
-		purpose: accessNeeded,
+	tr2 := &tokenRequest{
+		purpose:        accessNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr3 := &tokenRequest {
-		purpose: accessNeeded,
+	tr3 := &tokenRequest{
+		purpose:        accessNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr4 := &tokenRequest {
-		purpose: accessNeeded,
+	tr4 := &tokenRequest{
+		purpose:        accessNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
@@ -296,34 +296,34 @@ func TestRefreshWithMultipleRoutinesNeedAccessToken(t *testing.T) {
 	var w sync.WaitGroup
 	w.Add(4)
 	go func() {
-		tokenResp := <- tr2.tokenResponses
+		tokenResp := <-tr2.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr3.tokenResponses
+		tokenResp := <-tr3.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr4.tokenResponses
+		tokenResp := <-tr4.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr1.tokenResponses
+		tokenResp := <-tr1.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, false)
 		expect(t, tokenResp.token, "herp")
 
-		rc := &tokenRequest {
-			purpose: refreshComplete,
+		rc := &tokenRequest{
+			purpose:        refreshComplete,
 			tokenResponses: nil,
 		}
 		go tm.tokenRequest(rc)
@@ -332,23 +332,23 @@ func TestRefreshWithMultipleRoutinesNeedAccessToken(t *testing.T) {
 	w.Wait()
 
 	// refresh fails first
-	tr5 := &tokenRequest {
-		purpose: refreshNeeded,
+	tr5 := &tokenRequest{
+		purpose:        refreshNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr6 := &tokenRequest {
-		purpose: accessNeeded,
+	tr6 := &tokenRequest{
+		purpose:        accessNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr7 := &tokenRequest {
-		purpose: accessNeeded,
+	tr7 := &tokenRequest{
+		purpose:        accessNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
-	tr8 := &tokenRequest {
-		purpose: accessNeeded,
+	tr8 := &tokenRequest{
+		purpose:        accessNeeded,
 		tokenResponses: make(chan *tokenResponse),
 	}
 
@@ -361,52 +361,52 @@ func TestRefreshWithMultipleRoutinesNeedAccessToken(t *testing.T) {
 
 	w.Add(4)
 	go func() {
-		tokenResp := <- tr7.tokenResponses
+		tokenResp := <-tr7.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr8.tokenResponses
+		tokenResp := <-tr8.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr6.tokenResponses
+		tokenResp := <-tr6.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
 		expect(t, tokenResp.token, "derp")
 
-		rn := &tokenRequest {
-			purpose: refreshNeeded,
+		rn := &tokenRequest{
+			purpose:        refreshNeeded,
 			tokenResponses: make(chan *tokenResponse),
 		}
 
 		go tm.tokenRequest(rn)
 
-		refResp := <- rn.tokenResponses
+		refResp := <-rn.tokenResponses
 		refute(t, refResp, nil)
 		expect(t, refResp.isAccessToken, false)
 		expect(t, refResp.token, "herp")
 
-		rc := &tokenRequest {
-			purpose: refreshComplete,
+		rc := &tokenRequest{
+			purpose:        refreshComplete,
 			tokenResponses: nil,
 		}
 		go tm.tokenRequest(rc)
 		w.Done()
 	}()
 	go func() {
-		tokenResp := <- tr5.tokenResponses
+		tokenResp := <-tr5.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, false)
 		expect(t, tokenResp.token, "herp")
 
-		rc := &tokenRequest {
-			purpose: refreshFailed,
+		rc := &tokenRequest{
+			purpose:        refreshFailed,
 			tokenResponses: nil,
 		}
 		go tm.tokenRequest(rc)
