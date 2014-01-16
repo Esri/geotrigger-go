@@ -117,7 +117,9 @@ func (tm *tokenManager) manageTokens() {
 		case tr.purpose == accessNeeded:
 			go tokenApproved(tr, tm.accessToken, true)
 		default:
-			tr.tokenResponses <- nil
+			go func() {
+				tr.tokenResponses <- nil
+			}()
 		}
 	}
 }
