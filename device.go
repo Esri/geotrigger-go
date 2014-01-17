@@ -80,8 +80,6 @@ func (device *device) register(errorChan chan error) {
 	device.tokenManager = newTokenManager(deviceRegisterResponse.DeviceTokenJSON.AccessToken,
 		deviceRegisterResponse.DeviceTokenJSON.RefreshToken)
 
-	go device.manageTokens()
-
 	go func() {
 		errorChan <- nil
 	}()

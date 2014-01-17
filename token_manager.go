@@ -40,11 +40,14 @@ type tokenResponse struct {
 }
 
 func newTokenManager(accessToken string, refreshToken string) tokenManager {
-	return &tknManager{
+	tm := &tknManager{
 		tokenRequests: make(chan *tokenRequest),
 		accessToken:   accessToken,
 		refreshToken:  refreshToken,
 	}
+
+	go tm.manageTokens()
+	return tm
 }
 
 func newTokenRequest(purpose int, makeChan bool) *tokenRequest {

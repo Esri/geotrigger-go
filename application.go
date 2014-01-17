@@ -57,8 +57,6 @@ func (application *application) requestAccess(errorChan chan error) {
 	application.expiresIn = appTokenResponse.ExpiresIn
 	application.tokenManager = newTokenManager(appTokenResponse.AccessToken, "")
 
-	go application.manageTokens()
-
 	go func() {
 		errorChan <- nil
 	}()

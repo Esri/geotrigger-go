@@ -15,9 +15,20 @@ package geotrigger_golang
 // The client struct type. Holds onto a Session on your behalf and performs necessary setup.
 // Make API requests with the "Request" method. Get info about the current session with the
 // "GetSessionInfo" method. See the "Session" interface for further descriptions of those methods.
-// This is the type you should use directly for interacting with the geotrigger API.
+// This is the type you should use directly for interacting with the Geotrigger API.
 type Client struct {
 	Session
+}
+
+// Create and register a new application associated with the provided client_id
+// and client_secret.
+// The channel that is returned will be written to once. If the read value is a nil,
+// then the returned client pointer has been successfully inflated and is ready for use.
+// Otherwise, the error will contain information about what went wrong.
+func NewApplicationClient(clientId string, clientSecret string) (*Client, chan error) {
+	session, errorChan := newApplication(clientId, clientSecret)
+
+	return &Client{Session: session}, errorChan
 }
 
 // Create and register a new device associated with the provided client_id
@@ -30,13 +41,14 @@ func NewDeviceClient(clientId string) (*Client, chan error) {
 	return &Client{Session: session}, errorChan
 }
 
-// Create and register a new application associated with the provided client_id
-// and client_secret.
-// The channel that is returned will be written to once. If the read value is a nil,
-// then the returned client pointer has been successfully inflated and is ready for use.
-// Otherwise, the error will contain information about what went wrong.
-func NewApplicationClient(clientId string, clientSecret string) (*Client, chan error) {
-	session, errorChan := newApplication(clientId, clientSecret)
+// Inflate a client using existing device tokens and credentials obtained elsewhere.
+func ExistingDeviceClient(clientId string, deviceId string, accessToken string, refreshToken string) *Client {
+	device := &device{
+		clientId: clientId,
+		deviceId: deviceId,
+	}
 
-	return &Client{Session: session}, errorChan
+	device.tokenManager = newTokenManager(accessToken, refreshToken)
+
+	return &Client{Session: device}
 }
