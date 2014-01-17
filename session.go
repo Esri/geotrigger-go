@@ -17,8 +17,11 @@ var (
 	ago_base_url        = "https://www.arcgis.com"
 )
 
-const ago_token_route = "/sharing/oauth2/token"
-const ago_register_route = "/sharing/oauth2/registerDevice"
+const (
+	ago_token_route = "/sharing/oauth2/token"
+	ago_register_route = "/sharing/oauth2/registerDevice"
+	version = "0.1.0"
+)
 
 // The Session type obfuscates whether we are a device or an application,
 // both of which implement the interface slightly differently.
@@ -105,6 +108,8 @@ func geotriggerPost(session Session, route string, params map[string]interface{}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenResp.token))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-GT-Client-Name", "geotrigger_golang")
+	req.Header.Set("X-GT-Client-Version", version)
 
 	return post(req, body, responseJSON, refreshFunc)
 }
