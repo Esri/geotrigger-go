@@ -23,7 +23,7 @@ const (
 	version            = "0.1.0"
 )
 
-// The Session type obfuscates whether we are a device or an application,
+// The Session interface obfuscates whether we are a device or an application,
 // both of which implement the interface slightly differently.
 type Session interface {
 	// The method to use for making requests!

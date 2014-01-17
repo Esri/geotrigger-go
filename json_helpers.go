@@ -29,7 +29,7 @@ func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value
 	return setVal(value, jsonVal)
 }
 
-// A helpful method for unpacking values out of arbitrary JSON arrays
+// A helpful method for unpacking values out of arbitrary JSON arrays.
 // `value` should be a pointer to a value of the type you expect to retrieve.
 // Inner objects are of type `map[string]interface{}`.
 // Inner arrays are of type `[]interface{}`.
