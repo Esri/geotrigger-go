@@ -1,9 +1,0 @@
-# Ignore system files
-.DS_Store
-
-# Ignore editor files
-*.iml
-.idea
-
-# playground
-playground.go
