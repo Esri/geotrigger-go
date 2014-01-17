@@ -14,7 +14,7 @@ package geotrigger_golang
 
 // The client struct type. Holds onto a Session on your behalf and performs necessary setup.
 // Make API requests with the "Request" method. Get info about the current session with the
-// "GetSessionInfo" method.
+// "GetSessionInfo" method. See the "Session" interface for further descriptions of those methods.
 // This is the type you should use directly for interacting with the geotrigger API.
 type Client struct {
 	Session

@@ -46,16 +46,16 @@ type Session interface {
 	// `client_id`
 	GetSessionInfo() map[string]string
 	// A session is also a TokenManager
-	TokenManager
+	tokenManager
 	// used internally when token expires
 	refresh(string) error
 }
 
-type ErrorResponse struct {
-	Error ErrorJSON `json:"error"`
+type errorResponse struct {
+	Error errorJSON `json:"error"`
 }
 
-type ErrorJSON struct {
+type errorJSON struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
@@ -179,11 +179,11 @@ func readResponseBody(resp *http.Response) (contents []byte, err error) {
 	return
 }
 
-func errorCheck(resp []byte) *ErrorResponse {
-	var errorContainer ErrorResponse
+func errorCheck(resp []byte) *errorResponse {
+	var errorContainer errorResponse
 	if err := json.Unmarshal(resp, &errorContainer); err != nil {
 		// Don't return an error here, as it is possible for the response
-		// to not be parsed into an ErrorResponse, causing an error to be thrown, but still
+		// to not be parsed into an errorResponse, causing an error to be thrown, but still
 		// be valid, ie: the root element of the response is an array.
 		// We are just looking to see if we can spot a known server error anyway.
 		return nil

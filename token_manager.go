@@ -2,7 +2,7 @@ package geotrigger_golang
 
 import "fmt"
 
-type TokenManager interface {
+type tokenManager interface {
 	// the manageTokens() func should loop in a routine and manage
 	// access to the tokens for other routines
 	manageTokens()
@@ -15,7 +15,7 @@ type TokenManager interface {
 	setAccessToken(string)
 }
 
-type tokenManager struct {
+type tknManager struct {
 	tokenRequests chan *tokenRequest
 	accessToken   string
 	refreshToken  string
@@ -39,8 +39,8 @@ type tokenResponse struct {
 	isAccessToken bool
 }
 
-func newTokenManager(accessToken string, refreshToken string) TokenManager {
-	return &tokenManager{
+func newTokenManager(accessToken string, refreshToken string) tokenManager {
+	return &tknManager{
 		tokenRequests: make(chan *tokenRequest),
 		accessToken:   accessToken,
 		refreshToken:  refreshToken,
@@ -59,23 +59,23 @@ func newTokenRequest(purpose int, makeChan bool) *tokenRequest {
 	}
 }
 
-func (tm *tokenManager) tokenRequest(tr *tokenRequest) {
+func (tm *tknManager) tokenRequest(tr *tokenRequest) {
 	tm.tokenRequests <- tr
 }
 
-func (tm *tokenManager) getAccessToken() string {
+func (tm *tknManager) getAccessToken() string {
 	return tm.accessToken
 }
 
-func (tm *tokenManager) getRefreshToken() string {
+func (tm *tknManager) getRefreshToken() string {
 	return tm.refreshToken
 }
 
-func (tm *tokenManager) setAccessToken(token string) {
+func (tm *tknManager) setAccessToken(token string) {
 	tm.accessToken = token
 }
 
-func (tm *tokenManager) manageTokens() {
+func (tm *tknManager) manageTokens() {
 	var waitingRequests []*tokenRequest
 	refreshInProgress := false
 	for {

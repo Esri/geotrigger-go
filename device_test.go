@@ -80,7 +80,7 @@ func TestDeviceTokenRefresh(t *testing.T) {
 	defer agoUrlRestorer.restore()
 
 	testDevice := &device{
-		TokenManager: newTokenManager("old_access_token", "good_refresh_token"),
+		tokenManager: newTokenManager("old_access_token", "good_refresh_token"),
 		clientId:     "good_client_id",
 		deviceId:     "device_id",
 		expiresIn:    4,

@@ -5,13 +5,13 @@ import (
 )
 
 type application struct {
-	TokenManager
+	tokenManager
 	clientId     string
 	clientSecret string
 	expiresIn    int
 }
 
-type ApplicationTokenResponse struct {
+type applicationTokenResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int    `json:"expires_in"`
 }
@@ -46,7 +46,7 @@ func newApplication(clientId string, clientSecret string) (Session, chan error) 
 }
 
 func (application *application) requestAccess(errorChan chan error) {
-	var appTokenResponse ApplicationTokenResponse
+	var appTokenResponse applicationTokenResponse
 	if err := agoPost(ago_token_route, application.prepareTokenRequestValues(), &appTokenResponse); err != nil {
 		go func() {
 			errorChan <- err
@@ -55,7 +55,7 @@ func (application *application) requestAccess(errorChan chan error) {
 
 	// store the new access token
 	application.expiresIn = appTokenResponse.ExpiresIn
-	application.TokenManager = newTokenManager(appTokenResponse.AccessToken, "")
+	application.tokenManager = newTokenManager(appTokenResponse.AccessToken, "")
 
 	go application.manageTokens()
 
@@ -66,7 +66,7 @@ func (application *application) requestAccess(errorChan chan error) {
 }
 
 func (application *application) refresh(refreshToken string) error {
-	var appTokenResponse ApplicationTokenResponse
+	var appTokenResponse applicationTokenResponse
 	if err := agoPost(ago_token_route, application.prepareTokenRequestValues(), &appTokenResponse); err != nil {
 		return err
 	}

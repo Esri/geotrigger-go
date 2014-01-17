@@ -5,29 +5,29 @@ import (
 )
 
 type device struct {
-	TokenManager
+	tokenManager
 	clientId  string
 	deviceId  string
 	expiresIn int
 }
 
 /* Device JSON structs */
-type DeviceRegisterResponse struct {
-	DeviceJSON      DeviceJSON      `json:"device"`
-	DeviceTokenJSON DeviceTokenJSON `json:"deviceToken"`
+type deviceRegisterResponse struct {
+	DeviceJSON      deviceJSON      `json:"device"`
+	DeviceTokenJSON deviceTokenJSON `json:"deviceToken"`
 }
 
-type DeviceTokenJSON struct {
+type deviceTokenJSON struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int    `json:"expires_in"`
 }
 
-type DeviceJSON struct {
+type deviceJSON struct {
 	DeviceId string `json:"deviceId"`
 }
 
-type DeviceRefreshResponse struct {
+type deviceRefreshResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int    `json:"expires_in"`
 }
@@ -67,7 +67,7 @@ func (device *device) register(errorChan chan error) {
 	values.Set("f", "json")
 
 	// make request
-	var deviceRegisterResponse DeviceRegisterResponse
+	var deviceRegisterResponse deviceRegisterResponse
 	if err := agoPost(ago_register_route, []byte(values.Encode()), &deviceRegisterResponse); err != nil {
 		go func() {
 			errorChan <- err
@@ -77,7 +77,7 @@ func (device *device) register(errorChan chan error) {
 
 	device.deviceId = deviceRegisterResponse.DeviceJSON.DeviceId
 	device.expiresIn = deviceRegisterResponse.DeviceTokenJSON.ExpiresIn
-	device.TokenManager = newTokenManager(deviceRegisterResponse.DeviceTokenJSON.AccessToken,
+	device.tokenManager = newTokenManager(deviceRegisterResponse.DeviceTokenJSON.AccessToken,
 		deviceRegisterResponse.DeviceTokenJSON.RefreshToken)
 
 	go device.manageTokens()
@@ -96,7 +96,7 @@ func (device *device) refresh(refreshToken string) error {
 	values.Set("refresh_token", refreshToken)
 
 	// make request
-	var refreshResponse DeviceRefreshResponse
+	var refreshResponse deviceRefreshResponse
 	if err := agoPost(ago_token_route, []byte(values.Encode()), &refreshResponse); err != nil {
 		return err
 	}

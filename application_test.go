@@ -81,7 +81,7 @@ func TestApplicationTokenRefresh(t *testing.T) {
 	defer agoUrlRestorer.restore()
 
 	testApplication := &application{
-		TokenManager: newTokenManager("old_access_token", ""),
+		tokenManager: newTokenManager("old_access_token", ""),
 		clientId:     "good_client_id",
 		clientSecret: "good_client_secret",
 		expiresIn:    4,
