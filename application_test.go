@@ -83,7 +83,7 @@ func TestApplicationTokenRefresh(t *testing.T) {
 	testApplication := &application{
 		TokenManager: newTokenManager("old_access_token", ""),
 		clientId:     "good_client_id",
-		clientSecret:     "good_client_secret",
+		clientSecret: "good_client_secret",
 		expiresIn:    4,
 	}
 

@@ -18,9 +18,9 @@ var (
 )
 
 const (
-	ago_token_route = "/sharing/oauth2/token"
+	ago_token_route    = "/sharing/oauth2/token"
 	ago_register_route = "/sharing/oauth2/registerDevice"
-	version = "0.1.0"
+	version            = "0.1.0"
 )
 
 // The Session type obfuscates whether we are a device or an application,

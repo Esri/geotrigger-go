@@ -47,7 +47,7 @@ func newApplication(clientId string, clientSecret string) (Session, chan error) 
 
 func (application *application) requestAccess(errorChan chan error) {
 	var appTokenResponse ApplicationTokenResponse
-	if err:= agoPost(ago_token_route, application.prepareTokenRequestValues(), &appTokenResponse); err != nil {
+	if err := agoPost(ago_token_route, application.prepareTokenRequestValues(), &appTokenResponse); err != nil {
 		go func() {
 			errorChan <- err
 		}()
