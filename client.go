@@ -9,7 +9,7 @@
 // https://developers.arcgis.com/en/geotrigger-service/
 //
 // Documentation for this library can be found on github:
-// https://github.com/geoloqi/geotrigger_golang
+// https://github.com/Esri/geotrigger_golang
 package geotrigger_golang
 
 // The client struct type. Holds onto a Session on your behalf and performs necessary setup.
