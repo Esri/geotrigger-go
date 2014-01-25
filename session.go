@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"reflect"
 )
 
 // The following are vars so that they can be changed by tests
@@ -63,6 +62,23 @@ type errorJSON struct {
 // func type for passing in to `post`. called when we get a 498 invalid token
 type refreshHandler func() (string, error)
 
+// funcs below manage http specifically for geotrigger service and AGO credentials
+func doRefresh(session Session, token string) (string, error) {
+	error := session.refresh(token)
+	var refreshResult *tokenRequest
+	var accessToken string
+	if error == nil {
+		accessToken = session.getAccessToken()
+		refreshResult = newTokenRequest(refreshComplete, false)
+	} else {
+		refreshResult = newTokenRequest(refreshFailed, false)
+	}
+
+	go session.tokenRequest(refreshResult)
+
+	return accessToken, error
+}
+
 func geotriggerPost(session Session, route string, params map[string]interface{}, responseJSON interface{}) error {
 	body, err := json.Marshal(params)
 	if err != nil {
@@ -78,9 +94,12 @@ func geotriggerPost(session Session, route string, params map[string]interface{}
 		tokenResp := <-tr.tokenResponses
 
 		if tokenResp.isAccessToken {
+			// refresh request denied, another routine has already refreshed!
+			// go ahead and use this access token
 			return tokenResp.token, nil
 		}
 
+		// refresh request approved, get a fresh token
 		return doRefresh(session, tokenResp.token)
 	}
 
@@ -90,10 +109,12 @@ func geotriggerPost(session Session, route string, params map[string]interface{}
 	tokenResp := <-tr.tokenResponses
 
 	var token string
-	if !tokenResp.isAccessToken {
-		token, err = doRefresh(session, tokenResp.token)
-	} else {
+	if tokenResp.isAccessToken {
+		// we have access, go ahead and use it
 		token = tokenResp.token
+	} else {
+		// access request denied, the token has expired. go get a fresh one
+		token, err = doRefresh(session, tokenResp.token)
 	}
 
 	if err != nil {
@@ -112,22 +133,6 @@ func geotriggerPost(session Session, route string, params map[string]interface{}
 	req.Header.Set("X-GT-Client-Version", version)
 
 	return post(req, body, responseJSON, refreshFunc)
-}
-
-func doRefresh(session Session, token string) (string, error) {
-	error := session.refresh(token)
-	var refreshResult *tokenRequest
-	var accessToken string
-	if error == nil {
-		accessToken = session.getAccessToken()
-		refreshResult = newTokenRequest(refreshComplete, false)
-	} else {
-		refreshResult = newTokenRequest(refreshFailed, false)
-	}
-
-	go session.tokenRequest(refreshResult)
-
-	return accessToken, error
 }
 
 func agoPost(route string, body []byte, responseJSON interface{}) error {
@@ -154,7 +159,8 @@ func post(req *http.Request, body []byte, responseJSON interface{}, refreshFunc 
 		return errors.New(fmt.Sprintf("Received status code %d from %s.", resp.StatusCode, path))
 	}
 
-	contents, err := readResponseBody(resp)
+	defer resp.Body.Close()
+	contents, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Could not read response body from %s. %s", path, err))
 	}
@@ -187,40 +193,4 @@ func post(req *http.Request, body []byte, responseJSON interface{}, refreshFunc 
 	}
 
 	return parseJSONResponse(contents, responseJSON)
-}
-
-func readResponseBody(resp *http.Response) (contents []byte, err error) {
-	defer resp.Body.Close()
-	contents, err = ioutil.ReadAll(resp.Body)
-	return
-}
-
-func errorCheck(resp []byte) *errorResponse {
-	var errorContainer errorResponse
-	if err := json.Unmarshal(resp, &errorContainer); err != nil {
-		// Don't return an error here, as it is possible for the response
-		// to not be parsed into an errorResponse, causing an error to be thrown, but still
-		// be valid, ie: the root element of the response is an array.
-		// We are just looking to see if we can spot a known server error anyway.
-		return nil
-	}
-
-	if errorContainer.Error.Code > 0 && len(errorContainer.Error.Message) > 0 {
-		return &errorContainer
-	}
-
-	return nil
-}
-
-func parseJSONResponse(resp []byte, responseJSON interface{}) error {
-	t := reflect.TypeOf(responseJSON)
-	if t == nil || t.Kind() != reflect.Ptr {
-		return errors.New(fmt.Sprintf("Provided responseJSON interface should be a pointer (to struct or map)."))
-	}
-
-	if err := json.Unmarshal(resp, responseJSON); err != nil {
-		return errors.New(fmt.Sprintf("Error parsing response: %s  Error: %s", string(resp), err))
-	}
-
-	return nil
 }

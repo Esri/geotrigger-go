@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"encoding/json"
 )
 
 // A helpful method for unpacking values out of arbitrary JSON objects.
@@ -92,4 +93,34 @@ func setVal(value interface{}, jsonVal interface{}) (err error) {
 	// have already checked that they the JSON value is assignable.
 	v.Set(reflect.ValueOf(jsonVal))
 	return
+}
+
+func errorCheck(resp []byte) *errorResponse {
+	var errorContainer errorResponse
+	if err := json.Unmarshal(resp, &errorContainer); err != nil {
+		// Don't return an error here, as it is possible for the response
+		// to not be parsed into an errorResponse, causing an error to be thrown, but still
+		// be valid, ie: the root element of the response is an array.
+		// We are just looking to see if we can spot a known server error anyway.
+		return nil
+	}
+
+	if errorContainer.Error.Code > 0 && len(errorContainer.Error.Message) > 0 {
+		return &errorContainer
+	}
+
+	return nil
+}
+
+func parseJSONResponse(resp []byte, responseJSON interface{}) error {
+	t := reflect.TypeOf(responseJSON)
+	if t == nil || t.Kind() != reflect.Ptr {
+		return errors.New(fmt.Sprintf("Provided responseJSON interface should be a pointer (to struct or map)."))
+	}
+
+	if err := json.Unmarshal(resp, responseJSON); err != nil {
+		return errors.New(fmt.Sprintf("Error parsing response: %s  Error: %s", string(resp), err))
+	}
+
+	return nil
 }
