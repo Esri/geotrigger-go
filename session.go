@@ -90,7 +90,7 @@ func geotriggerPost(session Session, route string, params map[string]interface{}
 	tokenResp := <-tr.tokenResponses
 
 	var token string
-	if (!tokenResp.isAccessToken) {
+	if !tokenResp.isAccessToken {
 		token, err = doRefresh(session, tokenResp.token)
 	} else {
 		token = tokenResp.token

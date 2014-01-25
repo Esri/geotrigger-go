@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewTokenManager(t *testing.T) {
-	tm := newTokenManager("derp", "herp")
+	tm := newTokenManager("derp", "herp", 1800)
 	refute(t, tm, nil)
 	expect(t, tm.getAccessToken(), "derp")
 	expect(t, tm.getRefreshToken(), "herp")
@@ -17,7 +17,7 @@ func TestNewTokenManager(t *testing.T) {
 }
 
 func TestSimpleTokenRequest(t *testing.T) {
-	tm := newTokenManager("derp", "herp")
+	tm := newTokenManager("derp", "herp", 1800)
 
 	// access token req
 	tr := &tokenRequest{
@@ -45,7 +45,7 @@ func TestSimpleTokenRequest(t *testing.T) {
 }
 
 func TestUnknownPurposeInt(t *testing.T) {
-	tm := newTokenManager("derp", "herp")
+	tm := newTokenManager("derp", "herp", 1800)
 
 	tr := &tokenRequest{
 		purpose:        39846,
@@ -58,7 +58,7 @@ func TestUnknownPurposeInt(t *testing.T) {
 }
 
 func TestConcurrentTokenAccess(t *testing.T) {
-	tm := newTokenManager("derp", "herp")
+	tm := newTokenManager("derp", "herp", 1800)
 
 	tr1 := &tokenRequest{
 		purpose:        accessNeeded,
@@ -119,7 +119,7 @@ func TestConcurrentTokenAccess(t *testing.T) {
 }
 
 func TestMultipleRoutinesNeedRefreshToken(t *testing.T) {
-	tm := newTokenManager("derp", "herp")
+	tm := newTokenManager("derp", "herp", 1800)
 
 	// refresh succeeds first
 	tr1 := &tokenRequest{
@@ -259,7 +259,7 @@ func TestMultipleRoutinesNeedRefreshToken(t *testing.T) {
 }
 
 func TestRefreshWithMultipleRoutinesNeedAccessToken(t *testing.T) {
-	tm := newTokenManager("derp", "herp")
+	tm := newTokenManager("derp", "herp", 1800)
 
 	// refresh succeeds first
 	tr1 := &tokenRequest{

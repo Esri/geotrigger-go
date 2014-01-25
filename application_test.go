@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestApplicationAccessRequestFail(t *testing.T) {
@@ -84,10 +85,11 @@ func TestApplicationTokenRefresh(t *testing.T) {
 		clientId:     "good_client_id",
 		clientSecret: "good_client_secret",
 	}
+	expiresAt := time.Now().Unix() + 7200 - 60
 
 	err = testApplication.refresh("")
 	expect(t, err, nil)
-	expect(t, testApplication.expiresIn, 7200)
+	expect(t, testApplication.getExpiresAt(), expiresAt)
 	expect(t, testApplication.getAccessToken(), "refreshed_access_token")
 	expect(t, testApplication.clientSecret, "good_client_secret")
 	expect(t, testApplication.getRefreshToken(), "")

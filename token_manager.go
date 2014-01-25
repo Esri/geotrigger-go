@@ -14,6 +14,7 @@ type tokenManager interface {
 	// normal getters for immediate *unsafe* access
 	getAccessToken() string
 	getRefreshToken() string
+	getExpiresAt() int64
 	// used safely when refreshing the access token
 	setAccessToken(string)
 	setExpiresAt(int64)
@@ -84,7 +85,11 @@ func (tm *tknManager) setAccessToken(token string) {
 }
 
 func (tm *tknManager) setExpiresAt(expiresIn int64) {
-	tm.expiresAt = time.Now().Unix() + (expiresIn * 1000) - int64(time.Minute);
+	tm.expiresAt = time.Now().Unix() + expiresIn - 60
+}
+
+func (tm *tknManager) getExpiresAt() int64 {
+	return tm.expiresAt
 }
 
 func (tm *tknManager) manageTokens() {
@@ -95,15 +100,17 @@ func (tm *tknManager) manageTokens() {
 
 		switch {
 		case tr.purpose == refreshFailed:
-			nextRequest := waitingRequests[0]
-			waitingRequests = waitingRequests[1:]
+			if (len(waitingRequests) > 0) {
+				nextRequest := waitingRequests[0]
+				waitingRequests = waitingRequests[1:]
 
-			if nextRequest.purpose == refreshNeeded {
-				refreshInProgress = true
-				go tokenApproved(nextRequest, tm.refreshToken, false)
-			} else if nextRequest.purpose == accessNeeded {
-				refreshInProgress = false
-				go tokenApproved(nextRequest, tm.accessToken, true)
+				if nextRequest.purpose == refreshNeeded {
+					refreshInProgress = true
+					go tokenApproved(nextRequest, tm.refreshToken, false)
+				} else if nextRequest.purpose == accessNeeded {
+					refreshInProgress = false
+					go tokenApproved(nextRequest, tm.accessToken, true)
+				}
 			}
 		case tr.purpose == refreshComplete:
 			if !refreshInProgress {
@@ -127,7 +134,7 @@ func (tm *tknManager) manageTokens() {
 			refreshInProgress = true
 			go tokenApproved(tr, tm.refreshToken, false)
 		case tr.purpose == accessNeeded:
-			if (tm.expiresAt <= time.Now().Unix()) {
+			if tm.expiresAt <= time.Now().Unix() {
 				refreshInProgress = true
 				go tokenApproved(tr, tm.refreshToken, false)
 			} else {

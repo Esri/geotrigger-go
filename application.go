@@ -12,7 +12,7 @@ type application struct {
 
 type applicationTokenResponse struct {
 	AccessToken string `json:"access_token"`
-	ExpiresIn   int64    `json:"expires_in"`
+	ExpiresIn   int64  `json:"expires_in"`
 }
 
 func (application *application) Request(route string, params map[string]interface{},

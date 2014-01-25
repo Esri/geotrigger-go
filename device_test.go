@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestExistingDevice(t *testing.T) {
@@ -124,10 +125,11 @@ func TestDeviceTokenRefresh(t *testing.T) {
 		clientId:     "good_client_id",
 		deviceId:     "device_id",
 	}
+	expiresAt := time.Now().Unix() + 1800 - 60
 
 	err = testDevice.refresh("good_refresh_token")
 	expect(t, err, nil)
-	expect(t, testDevice.expiresIn, 1800)
+	expect(t, testDevice.getExpiresAt(), expiresAt)
 	expect(t, testDevice.getAccessToken(), "refreshed_access_token")
 	expect(t, testDevice.clientId, "good_client_id")
 	expect(t, testDevice.getRefreshToken(), "good_refresh_token")
