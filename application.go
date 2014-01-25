@@ -8,12 +8,11 @@ type application struct {
 	tokenManager
 	clientId     string
 	clientSecret string
-	expiresIn    int
 }
 
 type applicationTokenResponse struct {
 	AccessToken string `json:"access_token"`
-	ExpiresIn   int    `json:"expires_in"`
+	ExpiresIn   int64    `json:"expires_in"`
 }
 
 func (application *application) Request(route string, params map[string]interface{},
@@ -54,8 +53,7 @@ func (application *application) requestAccess(errorChan chan error) {
 	}
 
 	// store the new access token
-	application.expiresIn = appTokenResponse.ExpiresIn
-	application.tokenManager = newTokenManager(appTokenResponse.AccessToken, "")
+	application.tokenManager = newTokenManager(appTokenResponse.AccessToken, "", appTokenResponse.ExpiresIn)
 
 	go func() {
 		errorChan <- nil
@@ -70,7 +68,7 @@ func (application *application) refresh(refreshToken string) error {
 	}
 
 	// store the new access token
-	application.expiresIn = appTokenResponse.ExpiresIn
+	application.setExpiresAt(appTokenResponse.ExpiresIn)
 	application.setAccessToken(appTokenResponse.AccessToken)
 
 	return nil

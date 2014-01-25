@@ -81,19 +81,7 @@ func geotriggerPost(session Session, route string, params map[string]interface{}
 			return tokenResp.token, nil
 		}
 
-		error := session.refresh(tokenResp.token)
-		var refreshResult *tokenRequest
-		var accessToken string
-		if error == nil {
-			accessToken = session.getAccessToken()
-			refreshResult = newTokenRequest(refreshComplete, false)
-		} else {
-			refreshResult = newTokenRequest(refreshFailed, false)
-		}
-
-		go session.tokenRequest(refreshResult)
-
-		return accessToken, error
+		return doRefresh(session, tokenResp.token)
 	}
 
 	tr := newTokenRequest(accessNeeded, true)
@@ -101,17 +89,45 @@ func geotriggerPost(session Session, route string, params map[string]interface{}
 
 	tokenResp := <-tr.tokenResponses
 
+	var token string
+	if (!tokenResp.isAccessToken) {
+		token, err = doRefresh(session, tokenResp.token)
+	} else {
+		token = tokenResp.token
+	}
+
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error while trying to refresh token before hitting route: %s. %s",
+			route, err))
+	}
+
 	req, err := http.NewRequest("POST", geotrigger_base_url+route, bytes.NewReader(body))
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error creating GeotriggerPost for route %s. %s", route, err))
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenResp.token))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-GT-Client-Name", "geotrigger_golang")
 	req.Header.Set("X-GT-Client-Version", version)
 
 	return post(req, body, responseJSON, refreshFunc)
+}
+
+func doRefresh(session Session, token string) (string, error) {
+	error := session.refresh(token)
+	var refreshResult *tokenRequest
+	var accessToken string
+	if error == nil {
+		accessToken = session.getAccessToken()
+		refreshResult = newTokenRequest(refreshComplete, false)
+	} else {
+		refreshResult = newTokenRequest(refreshFailed, false)
+	}
+
+	go session.tokenRequest(refreshResult)
+
+	return accessToken, error
 }
 
 func agoPost(route string, body []byte, responseJSON interface{}) error {

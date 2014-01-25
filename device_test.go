@@ -41,7 +41,7 @@ func TestExistingDevice(t *testing.T) {
 	}
 	defer gtUrlRestorer.restore()
 
-	client := ExistingDeviceClient("good_client_id", "device_id", "good_access_token", "good_refresh_token")
+	client := ExistingDeviceClient("good_client_id", "device_id", "good_access_token", 1800, "good_refresh_token")
 
 	params := map[string]interface{}{
 		"tags": "derp",
@@ -120,10 +120,9 @@ func TestDeviceTokenRefresh(t *testing.T) {
 	defer agoUrlRestorer.restore()
 
 	testDevice := &device{
-		tokenManager: newTokenManager("old_access_token", "good_refresh_token"),
+		tokenManager: newTokenManager("old_access_token", "good_refresh_token", 1800),
 		clientId:     "good_client_id",
 		deviceId:     "device_id",
-		expiresIn:    4,
 	}
 
 	err = testDevice.refresh("good_refresh_token")

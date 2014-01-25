@@ -1,6 +1,9 @@
 package geotrigger_golang
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type tokenManager interface {
 	// the manageTokens() func should loop in a routine and manage
@@ -13,12 +16,14 @@ type tokenManager interface {
 	getRefreshToken() string
 	// used safely when refreshing the access token
 	setAccessToken(string)
+	setExpiresAt(int64)
 }
 
 type tknManager struct {
 	tokenRequests chan *tokenRequest
 	accessToken   string
 	refreshToken  string
+	expiresAt     int64
 }
 
 /* consts and structs for channel coordination */
@@ -39,13 +44,13 @@ type tokenResponse struct {
 	isAccessToken bool
 }
 
-func newTokenManager(accessToken string, refreshToken string) tokenManager {
+func newTokenManager(accessToken string, refreshToken string, expiresIn int64) tokenManager {
 	tm := &tknManager{
 		tokenRequests: make(chan *tokenRequest),
 		accessToken:   accessToken,
 		refreshToken:  refreshToken,
 	}
-
+	tm.setExpiresAt(expiresIn)
 	go tm.manageTokens()
 	return tm
 }
@@ -76,6 +81,10 @@ func (tm *tknManager) getRefreshToken() string {
 
 func (tm *tknManager) setAccessToken(token string) {
 	tm.accessToken = token
+}
+
+func (tm *tknManager) setExpiresAt(expiresIn int64) {
+	tm.expiresAt = time.Now().Unix() + (expiresIn * 1000) - int64(time.Minute);
 }
 
 func (tm *tknManager) manageTokens() {
@@ -118,7 +127,12 @@ func (tm *tknManager) manageTokens() {
 			refreshInProgress = true
 			go tokenApproved(tr, tm.refreshToken, false)
 		case tr.purpose == accessNeeded:
-			go tokenApproved(tr, tm.accessToken, true)
+			if (tm.expiresAt <= time.Now().Unix()) {
+				refreshInProgress = true
+				go tokenApproved(tr, tm.refreshToken, false)
+			} else {
+				go tokenApproved(tr, tm.accessToken, true)
+			}
 		default:
 			go func() {
 				tr.tokenResponses <- nil

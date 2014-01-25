@@ -42,13 +42,13 @@ func NewDeviceClient(clientId string) (*Client, chan error) {
 }
 
 // Inflate a client using existing device tokens and credentials obtained elsewhere.
-func ExistingDeviceClient(clientId string, deviceId string, accessToken string, refreshToken string) *Client {
+func ExistingDeviceClient(clientId string, deviceId string, accessToken string, expiresIn int64, refreshToken string) *Client {
 	device := &device{
 		clientId: clientId,
 		deviceId: deviceId,
 	}
 
-	device.tokenManager = newTokenManager(accessToken, refreshToken)
+	device.tokenManager = newTokenManager(accessToken, refreshToken, expiresIn)
 
 	return &Client{Session: device}
 }

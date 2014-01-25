@@ -8,7 +8,6 @@ type device struct {
 	tokenManager
 	clientId  string
 	deviceId  string
-	expiresIn int
 }
 
 /* Device JSON structs */
@@ -20,7 +19,7 @@ type deviceRegisterResponse struct {
 type deviceTokenJSON struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int    `json:"expires_in"`
+	ExpiresIn    int64    `json:"expires_in"`
 }
 
 type deviceJSON struct {
@@ -29,7 +28,7 @@ type deviceJSON struct {
 
 type deviceRefreshResponse struct {
 	AccessToken string `json:"access_token"`
-	ExpiresIn   int    `json:"expires_in"`
+	ExpiresIn   int64    `json:"expires_in"`
 }
 
 func (device *device) Request(route string, params map[string]interface{}, responseJSON interface{}) chan error {
@@ -76,9 +75,8 @@ func (device *device) register(errorChan chan error) {
 	}
 
 	device.deviceId = deviceRegisterResponse.DeviceJSON.DeviceId
-	device.expiresIn = deviceRegisterResponse.DeviceTokenJSON.ExpiresIn
 	device.tokenManager = newTokenManager(deviceRegisterResponse.DeviceTokenJSON.AccessToken,
-		deviceRegisterResponse.DeviceTokenJSON.RefreshToken)
+		deviceRegisterResponse.DeviceTokenJSON.RefreshToken, deviceRegisterResponse.DeviceTokenJSON.ExpiresIn)
 
 	go func() {
 		errorChan <- nil
@@ -101,7 +99,7 @@ func (device *device) refresh(refreshToken string) error {
 
 	// store the new access token
 	device.setAccessToken(refreshResponse.AccessToken)
-	device.expiresIn = refreshResponse.ExpiresIn
+	device.setExpiresAt(refreshResponse.ExpiresIn)
 
 	return nil
 }
