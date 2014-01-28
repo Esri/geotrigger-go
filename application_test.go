@@ -239,40 +239,40 @@ func TestApplicationRecoveryFromErrorDuringRefreshWithRoutinesWaitingForRefresh(
 	expect(t, gt, 3)
 }
 
-func testApplicationConcurrentTokenExpirationWaitingAtAccessStep(t *testing.T) {
+func TestApplicationConcurrentTokenExpirationWaitingAtAccessStep(t *testing.T) {
 	ac := getValidApplicationClient(t)
 	ac.setExpiresAt(-100)
 
-	bt, gt := testConcurrentRefresh(t, ac, "refresh_token", "", "good_refresh_token", true, false)
+	bt, gt := testConcurrentRefresh(t, ac, "client_credentials", "good_client_secret", "", true, false)
 	expect(t, bt, 0)
 	expect(t, gt, 4)
 }
 
-func testApplicationConcurrentTokenExpirationWaitingAtRefreshStep(t *testing.T) {
+func TestApplicationConcurrentTokenExpirationWaitingAtRefreshStep(t *testing.T) {
 	ac := getValidApplicationClient(t)
 	ac.setExpiresAt(-100)
 
-	bt, gt := testConcurrentRefresh(t, ac, "refresh_token", "", "good_refresh_token", false, false)
+	bt, gt := testConcurrentRefresh(t, ac, "client_credentials", "good_client_secret", "", false, false)
 	expect(t, bt, 0)
 	expect(t, gt, 4)
 }
 
-func testApplicationRecoveryFromErrorDuringTokenExpirationWaitingForAccess(t *testing.T) {
+func TestApplicationRecoveryFromErrorDuringTokenExpirationWaitingForAccess(t *testing.T) {
 	ac := getValidApplicationClient(t)
 	ac.setExpiresAt(-100)
 
-	bt, gt := testConcurrentRefresh(t, ac, "refresh_token", "", "good_refresh_token", true, true)
+	bt, gt := testConcurrentRefresh(t, ac, "client_credentials", "good_client_secret", "", true, true)
 	expect(t, bt, 0)
-	expect(t, gt, 4)
+	expect(t, gt, 3)
 }
 
-func testApplicationRecoveryFromErrorDuringTokenExpirationWaitingForRefresh(t *testing.T) {
+func TestApplicationRecoveryFromErrorDuringTokenExpirationWaitingForRefresh(t *testing.T) {
 	ac := getValidApplicationClient(t)
 	ac.setExpiresAt(-100)
 
-	bt, gt := testConcurrentRefresh(t, ac, "refresh_token", "", "good_refresh_token", false, true)
+	bt, gt := testConcurrentRefresh(t, ac, "client_credentials", "good_client_secret", "", false, true)
 	expect(t, bt, 0)
-	expect(t, gt, 4)
+	expect(t, gt, 3)
 }
 
 func getValidApplicationClient(t *testing.T) *Client {

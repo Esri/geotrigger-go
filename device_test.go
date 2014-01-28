@@ -277,7 +277,7 @@ func TestDeviceRecoveryFromErrorDuringRefreshWithRoutinesWaitingForRefresh(t *te
 	expect(t, gt, 3)
 }
 
-func testDeviceConcurrentTokenExpirationWaitingAtAccessStep(t *testing.T) {
+func TestDeviceConcurrentTokenExpirationWaitingAtAccessStep(t *testing.T) {
 	dc := getValidDeviceClient(t)
 	dc.setExpiresAt(-100)
 
@@ -286,7 +286,7 @@ func testDeviceConcurrentTokenExpirationWaitingAtAccessStep(t *testing.T) {
 	expect(t, gt, 4)
 }
 
-func testDeviceConcurrentTokenExpirationWaitingAtRefreshStep(t *testing.T) {
+func TestDeviceConcurrentTokenExpirationWaitingAtRefreshStep(t *testing.T) {
 	dc := getValidDeviceClient(t)
 	dc.setExpiresAt(-100)
 
@@ -295,22 +295,22 @@ func testDeviceConcurrentTokenExpirationWaitingAtRefreshStep(t *testing.T) {
 	expect(t, gt, 4)
 }
 
-func testDeviceRecoveryFromErrorDuringTokenExpirationWaitingForAccess(t *testing.T) {
+func TestDeviceRecoveryFromErrorDuringTokenExpirationWaitingForAccess(t *testing.T) {
 	dc := getValidDeviceClient(t)
 	dc.setExpiresAt(-100)
 
 	bt, gt := testConcurrentRefresh(t, dc, "refresh_token", "", "good_refresh_token", true, true)
 	expect(t, bt, 0)
-	expect(t, gt, 4)
+	expect(t, gt, 3)
 }
 
-func testDeviceRecoveryFromErrorDuringTokenExpirationWaitingForRefresh(t *testing.T) {
+func TestDeviceRecoveryFromErrorDuringTokenExpirationWaitingForRefresh(t *testing.T) {
 	dc := getValidDeviceClient(t)
 	dc.setExpiresAt(-100)
 
 	bt, gt := testConcurrentRefresh(t, dc, "refresh_token", "", "good_refresh_token", false, true)
 	expect(t, bt, 0)
-	expect(t, gt, 4)
+	expect(t, gt, 3)
 }
 
 func getValidDeviceClient(t *testing.T) *Client {
