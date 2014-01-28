@@ -1,4 +1,3 @@
-
 # geotrigger_golang
     import "github.com/geoloqi/geotrigger_golang"
 
@@ -9,11 +8,9 @@ an Application. This assumes you have a developer account on
 developers.arcgis.com, from which you can create an Application and obtain
 the necessary credentials to use with this golang library.
 
-For more information about the Geotrigger Service, please look here:
-a href="https://developers.arcgis.com/en/geotrigger-service/">https://developers.arcgis.com/en/geotrigger-service/</a>
+For more information about the Geotrigger Service, please look [here](https://developers.arcgis.com/en/geotrigger-service/).
 
-Documentation for this library can be found on github:
-a href="https://github.com/Esri/geotrigger_golang">https://github.com/Esri/geotrigger_golang</a>
+Documentation for this library can be found on [github](https://github.com/Esri/geotrigger_golang) and [godoc.org](http://godoc.org/).
 
 
 
