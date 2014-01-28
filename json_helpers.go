@@ -7,12 +7,12 @@ import (
 	"reflect"
 )
 
-// A helpful method for unpacking values out of arbitrary JSON objects.
-// `value` should be a pointer to a value of the type you expect to retrieve.
-// Inner objects are of type `map[string]interface{}`.
-// Inner arrays are of type `[]interface{}`.
-// You can pass down a pointer to an `interface{}`, but then you are really better
-// off not using these helpers, as they use reflection to try and match types.
+// GetValueFromJSONObject is a helper function for unpacking values out of
+// arbitrary JSON objects. `value` should be a pointer to a value of the type
+// you expect to retrieve. Inner objects are of type `map[string]interface{}`.
+// Inner arrays are of type `[]interface{}`. You can pass down a pointer to an
+// `interface{}`, but then you are really better off not using these helpers, as
+// they use reflection to try and match types.
 func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value interface{}) error {
 	if jsonObject == nil {
 		return errors.New("Attempt to get value from a nil JSON object.")
@@ -24,25 +24,25 @@ func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value
 
 	jsonVal, gotVal := jsonObject[key]
 	if !gotVal {
-		return errors.New(fmt.Sprintf("No value found for key: %s", key))
+		return fmt.Errorf("No value found for key: %s", key)
 	}
 
 	return setVal(value, jsonVal)
 }
 
-// A helpful method for unpacking values out of arbitrary JSON arrays.
-// `value` should be a pointer to a value of the type you expect to retrieve.
-// Inner objects are of type `map[string]interface{}`.
-// Inner arrays are of type `[]interface{}`.
-// You can pass down a pointer to an `interface{}`, but then you are really better
-// off not using these helpers, as they use reflection to try and match types.
+// GetValueFromJSONArray is a helper function for unpacking values out of
+// arbitrary JSON arrays. `value` should be a pointer to a value of the type you
+// expect to retrieve. Inner objects are of type `map[string]interface{}`. Inner
+// arrays are of type `[]interface{}`. You can pass down a pointer to an
+// `interface{}`, but then you are really better off not using these helpers, as
+// they use reflection to try and match types.
 func GetValueFromJSONArray(jsonArray []interface{}, index int, value interface{}) error {
 	if jsonArray == nil {
 		return errors.New("Attempt to get value from a nil JSON aray.")
 	}
 
 	if index < 0 || index >= len(jsonArray) {
-		return errors.New(fmt.Sprintf("Provided index %d was out of range.", index))
+		return fmt.Errorf("Provided index %d was out of range.", index)
 	}
 
 	jsonVal := jsonArray[index]
@@ -64,9 +64,9 @@ func setVal(value interface{}, jsonVal interface{}) (err error) {
 	actualType := reflect.TypeOf(jsonVal)
 
 	if !actualType.AssignableTo(expectedType) {
-		return errors.New(fmt.Sprintf(
+		return fmt.Errorf(
 			"Provided reference is to a value of type %s that cannot be assigned to type found in JSON: %s.",
-			expectedType, actualType))
+			expectedType, actualType)
 	}
 
 	// recover from any panics that might occur below, although we should be safe
@@ -115,11 +115,11 @@ func errorCheck(resp []byte) *errorResponse {
 func parseJSONResponse(resp []byte, responseJSON interface{}) error {
 	t := reflect.TypeOf(responseJSON)
 	if t == nil || t.Kind() != reflect.Ptr {
-		return errors.New(fmt.Sprintf("Provided responseJSON interface should be a pointer (to struct or map)."))
+		return fmt.Errorf("Provided responseJSON interface should be a pointer (to struct or map).")
 	}
 
 	if err := json.Unmarshal(resp, responseJSON); err != nil {
-		return errors.New(fmt.Sprintf("Error parsing response: %s  Error: %s", string(resp), err))
+		return fmt.Errorf("Error parsing response: %s  Error: %s", string(resp), err)
 	}
 
 	return nil

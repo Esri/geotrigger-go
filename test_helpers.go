@@ -77,8 +77,8 @@ func patch(destination, v interface{}) (restorer, error) {
 	// compare that type to the type of v
 	providedType := reflect.TypeOf(v)
 	if destType != providedType {
-		return nil, errors.New(fmt.Sprintf("Provided value of type %s does not match destination type: %s.",
-			providedType, destType))
+		return nil, fmt.Errorf("Provided value of type %s does not match destination type: %s.",
+			providedType, destType)
 	}
 
 	// get the value being pointed to
@@ -160,11 +160,11 @@ func testConcurrentRefresh(t *testing.T, client *Client, grantType string, clien
 	defer agoServer.Close()
 
 	// set the ago url to the url of our test server so we aren't hitting prod
-	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	agoURLRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer agoUrlRestorer.restore()
+	defer agoURLRestorer.restore()
 
 	var oldAccessTokenUse, refreshedAccessTokenUse int
 	// a test server to represent the geotrigger server
@@ -197,11 +197,11 @@ func testConcurrentRefresh(t *testing.T, client *Client, grantType string, clien
 	defer gtServer.Close()
 
 	// set the geotrigger url to the url of our test server so we aren't hitting prod
-	gtUrlRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
+	gtURLRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer gtUrlRestorer.restore()
+	defer gtURLRestorer.restore()
 
 	params1 := map[string]interface{}{
 		"tags": "derp",

@@ -11,7 +11,7 @@ type TriggerList struct {
 }
 
 type Trigger struct {
-	TriggerId string    `json:"triggerId"`
+	TriggerID string    `json:"triggerId"`
 	Condition Condition `json:"condition"`
 	Action    Action    `json:"action"`
 	Tags      []string  `json:"tags"`

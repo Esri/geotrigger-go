@@ -6,8 +6,8 @@ import (
 
 type device struct {
 	tokenManager
-	clientId string
-	deviceId string
+	clientID string
+	deviceID string
 }
 
 /* Device JSON structs */
@@ -23,7 +23,7 @@ type deviceTokenJSON struct {
 }
 
 type deviceJSON struct {
-	DeviceId string `json:"deviceId"`
+	DeviceID string `json:"deviceID"`
 }
 
 type deviceRefreshResponse struct {
@@ -39,14 +39,14 @@ func (device *device) info() map[string]string {
 	return map[string]string{
 		"access_token":  device.getAccessToken(),
 		"refresh_token": device.getRefreshToken(),
-		"device_id":     device.deviceId,
-		"client_id":     device.clientId,
+		"device_id":     device.deviceID,
+		"client_id":     device.clientID,
 	}
 }
 
-func newDevice(clientId string) (session, error) {
+func newDevice(clientID string) (session, error) {
 	device := &device{
-		clientId: clientId,
+		clientID: clientID,
 	}
 
 	if err := device.register(); err != nil {
@@ -59,7 +59,7 @@ func newDevice(clientId string) (session, error) {
 func (device *device) register() error {
 	// prep values
 	values := url.Values{}
-	values.Set("client_id", device.clientId)
+	values.Set("client_id", device.clientID)
 	values.Set("f", "json")
 
 	// make request
@@ -68,7 +68,7 @@ func (device *device) register() error {
 		return err
 	}
 
-	device.deviceId = deviceRegisterResponse.DeviceJSON.DeviceId
+	device.deviceID = deviceRegisterResponse.DeviceJSON.DeviceID
 	device.tokenManager = newTokenManager(deviceRegisterResponse.DeviceTokenJSON.AccessToken,
 		deviceRegisterResponse.DeviceTokenJSON.RefreshToken, deviceRegisterResponse.DeviceTokenJSON.ExpiresIn)
 	return nil
@@ -77,7 +77,7 @@ func (device *device) register() error {
 func (device *device) refresh(refreshToken string) error {
 	// prep values
 	values := url.Values{}
-	values.Set("client_id", device.clientId)
+	values.Set("client_id", device.clientID)
 	values.Set("f", "json")
 	values.Set("grant_type", "refresh_token")
 	values.Set("refresh_token", refreshToken)

@@ -65,12 +65,11 @@ func doRefresh(session session, token string) (string, error) {
 func geotriggerPost(session session, route string, params map[string]interface{}, responseJSON interface{}) error {
 	body, err := json.Marshal(params)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error while marshaling params into JSON for route: %s. %s",
-			route, err))
+		return fmt.Errorf("Error while marshaling params into JSON for route: %s. %s", route, err)
 	}
 
 	// This func gets a blocking call if we get a 498 from the geotrigger server
-	var refreshFunc refreshHandler = func() (string, error) {
+	refreshFunc := func() (string, error) {
 		tr := newTokenRequest(refreshNeeded, true)
 		go session.tokenRequest(tr)
 
@@ -101,13 +100,13 @@ func geotriggerPost(session session, route string, params map[string]interface{}
 	}
 
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error while trying to refresh token before hitting route: %s. %s",
-			route, err))
+		return fmt.Errorf("Error while trying to refresh token before hitting route: %s. %s",
+			route, err)
 	}
 
 	req, err := http.NewRequest("POST", geotrigger_base_url+route, bytes.NewReader(body))
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error creating GeotriggerPost for route %s. %s", route, err))
+		return fmt.Errorf("Error creating GeotriggerPost for route %s. %s", route, err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -121,7 +120,7 @@ func geotriggerPost(session session, route string, params map[string]interface{}
 func agoPost(route string, body []byte, responseJSON interface{}) error {
 	req, err := http.NewRequest("POST", ago_base_url+route, bytes.NewReader(body))
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error creating AgoPost for route %s. %s", route, err))
+		return fmt.Errorf("Error creating AgoPost for route %s. %s", route, err)
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -135,17 +134,17 @@ func post(req *http.Request, body []byte, responseJSON interface{}, refreshFunc 
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error while posting to: %s.  Error: %s", path, err))
+		return fmt.Errorf("Error while posting to: %s. Error: %s", path, err)
 	}
 
 	if resp.StatusCode != 200 {
-		return errors.New(fmt.Sprintf("Received status code %d from %s.", resp.StatusCode, path))
+		return fmt.Errorf("Received status code %d from %s.", resp.StatusCode, path)
 	}
 
 	defer resp.Body.Close()
 	contents, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Could not read response body from %s. %s", path, err))
+		return fmt.Errorf("Could not read response body from %s. %s", path, err)
 	}
 
 	if errResponse := errorCheck(contents); errResponse != nil {
@@ -170,8 +169,8 @@ func post(req *http.Request, body []byte, responseJSON interface{}, refreshFunc 
 				return err
 			}
 		} else {
-			return errors.New(fmt.Sprintf("Error from %s, code: %d. Message: %s",
-				path, errResponse.Error.Code, errResponse.Error.Message))
+			return fmt.Errorf("Error from %s, code: %d. Message: %s",
+				path, errResponse.Error.Code, errResponse.Error.Message)
 		}
 	}
 

@@ -6,7 +6,7 @@ import (
 
 type application struct {
 	tokenManager
-	clientId     string
+	clientID     string
 	clientSecret string
 }
 
@@ -22,22 +22,17 @@ func (application *application) request(route string, params map[string]interfac
 func (application *application) info() map[string]string {
 	return map[string]string{
 		"access_token":  application.getAccessToken(),
-		"client_id":     application.clientId,
+		"client_id":     application.clientID,
 		"client_secret": application.clientSecret,
 	}
 }
 
-func newApplication(clientId string, clientSecret string) (session, error) {
+func newApplication(clientID string, clientSecret string) (session, error) {
 	application := &application{
-		clientId:     clientId,
+		clientID:     clientID,
 		clientSecret: clientSecret,
 	}
-
-	if err := application.requestAccess(); err != nil {
-		return nil, err
-	}
-
-	return application, nil
+	return application, application.requestAccess()
 }
 
 func (application *application) requestAccess() error {
@@ -68,7 +63,7 @@ func (application *application) refresh(refreshToken string) error {
 func (application *application) prepareTokenRequestValues() []byte {
 	// prep values
 	values := url.Values{}
-	values.Set("client_id", application.clientId)
+	values.Set("client_id", application.clientID)
 	values.Set("client_secret", application.clientSecret)
 	values.Set("grant_type", "client_credentials")
 	values.Set("f", "json")

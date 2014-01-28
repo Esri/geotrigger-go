@@ -31,11 +31,11 @@ func TestApplicationAccessRequestFail(t *testing.T) {
 	defer agoServer.Close()
 
 	// set the ago url to the url of our test server so we aren't hitting prod
-	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	agoURLRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer agoUrlRestorer.restore()
+	defer agoURLRestorer.restore()
 
 	expectedErrorMessage := "Error from /sharing/oauth2/token, code: 999. Message: invalid_request"
 	_, err = NewApplication("bad_client_id", "bad_client_secret")
@@ -71,15 +71,15 @@ func TestApplicationTokenRefresh(t *testing.T) {
 	defer agoServer.Close()
 
 	// set the ago url to the url of our test server so we aren't hitting prod
-	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	agoURLRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer agoUrlRestorer.restore()
+	defer agoURLRestorer.restore()
 
 	testApplication := &application{
 		tokenManager: newTokenManager("old_access_token", "", 7200),
-		clientId:     "good_client_id",
+		clientID:     "good_client_id",
 		clientSecret: "good_client_secret",
 	}
 	expiresAt := time.Now().Unix() + 7200 - 60
@@ -121,11 +121,11 @@ func TestApplicationFullWorkflowWithRefresh(t *testing.T) {
 	defer gtServer.Close()
 
 	// set the geotrigger url to the url of our test server so we aren't hitting prod
-	gtUrlRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
+	gtURLRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer gtUrlRestorer.restore()
+	defer gtURLRestorer.restore()
 
 	// a test server to represent AGO
 	var tokenReqCount int
@@ -153,11 +153,11 @@ func TestApplicationFullWorkflowWithRefresh(t *testing.T) {
 	defer agoServer.Close()
 
 	// set the ago url to the url of our test server so we aren't hitting prod
-	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	agoURLRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer agoUrlRestorer.restore()
+	defer agoURLRestorer.restore()
 
 	client, err := NewApplication("good_client_id", "good_client_secret")
 
@@ -294,11 +294,11 @@ func getValidApplicationClient(t *testing.T) *Client {
 	defer agoServer.Close()
 
 	// set the ago url to the url of our test server so we aren't hitting prod
-	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	agoURLRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer agoUrlRestorer.restore()
+	defer agoURLRestorer.restore()
 
 	client, err := NewApplication("good_client_id", "good_client_secret")
 

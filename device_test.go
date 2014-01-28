@@ -35,11 +35,11 @@ func TestExistingDevice(t *testing.T) {
 	defer gtServer.Close()
 
 	// set the geotrigger url to the url of our test server so we aren't hitting prod
-	gtUrlRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
+	gtURLRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer gtUrlRestorer.restore()
+	defer gtURLRestorer.restore()
 
 	client := ExistingDevice("good_client_id", "device_id", "good_access_token", 1800, "good_refresh_token")
 
@@ -69,11 +69,11 @@ func TestDeviceRegisterFail(t *testing.T) {
 	defer agoServer.Close()
 
 	// set the ago url to the url of our test server so we aren't hitting prod
-	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	agoURLRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer agoUrlRestorer.restore()
+	defer agoURLRestorer.restore()
 
 	expectedErrorMessage := "Error from /sharing/oauth2/registerDevice, code: 999. Message: Unable to register device."
 	_, err = NewDevice("bad_client_id")
@@ -110,16 +110,16 @@ func TestDeviceTokenRefresh(t *testing.T) {
 	defer agoServer.Close()
 
 	// set the ago url to the url of our test server so we aren't hitting prod
-	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	agoURLRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer agoUrlRestorer.restore()
+	defer agoURLRestorer.restore()
 
 	testDevice := &device{
 		tokenManager: newTokenManager("old_access_token", "good_refresh_token", 1800),
-		clientId:     "good_client_id",
-		deviceId:     "device_id",
+		clientID:     "good_client_id",
+		deviceID:     "device_id",
 	}
 	expiresAt := time.Now().Unix() + 1800 - 60
 
@@ -127,7 +127,7 @@ func TestDeviceTokenRefresh(t *testing.T) {
 	expect(t, err, nil)
 	expect(t, testDevice.getExpiresAt(), expiresAt)
 	expect(t, testDevice.getAccessToken(), "refreshed_access_token")
-	expect(t, testDevice.clientId, "good_client_id")
+	expect(t, testDevice.clientID, "good_client_id")
 	expect(t, testDevice.getRefreshToken(), "good_refresh_token")
 }
 
@@ -160,11 +160,11 @@ func TestDeviceFullWorkflowWithRefresh(t *testing.T) {
 	defer gtServer.Close()
 
 	// set the geotrigger url to the url of our test server so we aren't hitting prod
-	gtUrlRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
+	gtURLRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer gtUrlRestorer.restore()
+	defer gtURLRestorer.restore()
 
 	// a test server to represent AGO
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
@@ -178,7 +178,7 @@ func TestDeviceFullWorkflowWithRefresh(t *testing.T) {
 			expect(t, len(vals), 2)
 			expect(t, vals.Get("client_id"), "good_client_id")
 			expect(t, vals.Get("f"), "json")
-			fmt.Fprintln(res, `{"device":{"deviceId":"device_id","client_id":"good_client_id","apnsProdToken":null,"apnsSandboxToken":null,"gcmRegistrationId":null,"registered":1389531528000,"lastAccessed":1389531528000},"deviceToken":{"access_token":"old_access_token","expires_in":1799,"refresh_token":"good_refresh_token"}}`)
+			fmt.Fprintln(res, `{"device":{"deviceID":"device_id","client_id":"good_client_id","apnsProdToken":null,"apnsSandboxToken":null,"gcmRegistrationId":null,"registered":1389531528000,"lastAccessed":1389531528000},"deviceToken":{"access_token":"old_access_token","expires_in":1799,"refresh_token":"good_refresh_token"}}`)
 		} else if r.URL.Path == ago_token_route {
 			expect(t, len(vals), 4)
 			expect(t, vals.Get("client_id"), "good_client_id")
@@ -193,11 +193,11 @@ func TestDeviceFullWorkflowWithRefresh(t *testing.T) {
 	defer agoServer.Close()
 
 	// set the ago url to the url of our test server so we aren't hitting prod
-	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	agoURLRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer agoUrlRestorer.restore()
+	defer agoURLRestorer.restore()
 
 	client, err := NewDevice("good_client_id")
 
@@ -325,16 +325,16 @@ func getValidDeviceClient(t *testing.T) *Client {
 		expect(t, len(vals), 2)
 		expect(t, vals.Get("client_id"), "good_client_id")
 		expect(t, vals.Get("f"), "json")
-		fmt.Fprintln(res, `{"device":{"deviceId":"device_id","client_id":"good_client_id","apnsProdToken":null,"apnsSandboxToken":null,"gcmRegistrationId":null,"registered":1389531528000,"lastAccessed":1389531528000},"deviceToken":{"access_token":"good_access_token","expires_in":1799,"refresh_token":"good_refresh_token"}}`)
+		fmt.Fprintln(res, `{"device":{"deviceID":"device_id","client_id":"good_client_id","apnsProdToken":null,"apnsSandboxToken":null,"gcmRegistrationId":null,"registered":1389531528000,"lastAccessed":1389531528000},"deviceToken":{"access_token":"good_access_token","expires_in":1799,"refresh_token":"good_refresh_token"}}`)
 	}))
 	defer agoServer.Close()
 
 	// set the ago url to the url of our test server so we aren't hitting prod
-	agoUrlRestorer, err := patch(&ago_base_url, agoServer.URL)
+	agoURLRestorer, err := patch(&ago_base_url, agoServer.URL)
 	if err != nil {
 		t.Error("Error during test setup: %s", err)
 	}
-	defer agoUrlRestorer.restore()
+	defer agoURLRestorer.restore()
 
 	client, err := NewDevice("good_client_id")
 
