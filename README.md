@@ -1,3 +1,4 @@
+
 # geotrigger_golang
     import "github.com/geoloqi/geotrigger_golang"
 
@@ -8,12 +9,8 @@ an Application. This assumes you have a developer account on
 developers.arcgis.com, from which you can create an Application and obtain
 the necessary credentials to use with this golang library.
 
-For more information about the Geotrigger Service, please look [here](https://developers.arcgis.com/en/geotrigger-service/).
-
-Documentation for this library can be found on [github](https://github.com/Esri/geotrigger_golang) and [godoc.org](http://godoc.org/).
-
-
-
+For more information about the Geotrigger Service, please go to
+<<a href="https://developers.arcgis.com/en/geotrigger-service/">https://developers.arcgis.com/en/geotrigger-service/</a>
 
 
 
@@ -21,7 +18,9 @@ Documentation for this library can be found on [github](https://github.com/Esri/
 
 
 ## func GetValueFromJSONArray
-<pre>func GetValueFromJSONArray(jsonArray []interface{}, index int, value interface{}) error</pre>
+``` go
+func GetValueFromJSONArray(jsonArray []interface{}, index int, value interface{}) error
+```
 A helpful method for unpacking values out of arbitrary JSON arrays.
 `value` should be a pointer to a value of the type you expect to retrieve.
 Inner objects are of type `map[string]interface{}`.
@@ -30,12 +29,10 @@ You can pass down a pointer to an `interface{}`, but then you are really better
 off not using these helpers, as they use reflection to try and match types.
 
 
-
-
-
-
 ## func GetValueFromJSONObject
-<pre>func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value interface{}) error</pre>
+``` go
+func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value interface{}) error
+```
 A helpful method for unpacking values out of arbitrary JSON objects.
 `value` should be a pointer to a value of the type you expect to retrieve.
 Inner objects are of type `map[string]interface{}`.
@@ -45,14 +42,12 @@ off not using these helpers, as they use reflection to try and match types.
 
 
 
-
-
-
-
 ## type Client
-<pre>type Client struct {
+``` go
+type Client struct {
     // contains filtered or unexported fields
-}</pre>
+}
+```
 The client manages credentials for an ArcGIS Application or Device based on what you pass in to the
 provided constructors.
 
@@ -69,47 +64,36 @@ This is the type you should use directly for interacting with the Geotrigger API
 
 
 
-
-
 ### func ExistingDevice
-
-    func ExistingDevice(clientId string, deviceId string, accessToken string, expiresIn int64, refreshToken string) *Client
-
+``` go
+func ExistingDevice(clientId string, deviceId string, accessToken string, expiresIn int64, refreshToken string) *Client
+```
 Inflate a client using existing device tokens and credentials obtained elsewhere.
 
 Provided primarily as a way of debugging an active mobile install.
 
 
-
-
-
 ### func NewApplication
-
-    func NewApplication(clientId string, clientSecret string) (*Client, error)
-
+``` go
+func NewApplication(clientId string, clientSecret string) (*Client, error)
+```
 Create and register a new application associated with the provided client_id
 and client_secret.
 
 
-
-
-
 ### func NewDevice
-
-    func NewDevice(clientId string) (*Client, error)
-
+``` go
+func NewDevice(clientId string) (*Client, error)
+```
 Create and register a new device associated with the provided client_id.
 
 
 
 
-
-
-
 ### func (\*Client) Info
-
-    func (client *Client) Info() map[string]string
-
+``` go
+func (client *Client) Info() map[string]string
+```
 Get info about the current session.
 
 If this is an application session, the following keys will be present: `access_token`, `client_id`, `client_secret`.
@@ -118,22 +102,16 @@ If this is a device session, the following keys will be present: `access_token`,
 
 
 
-
-
-
 ### func (\*Client) Request
-
-    func (client *Client) Request(route string, params map[string]interface{}, response interface{}) error
-
+``` go
+func (client *Client) Request(route string, params map[string]interface{}, response interface{}) error
+```
 The method to use for making requests!
 
 `response` can be a pointer to a struct modeling the expected JSON, or to an arbitrary JSON map (map[string]interface{})
 that can then be used with the helper methods `GetValueFromJSONObject` and `GetValueFromJSONArray`.
 
 `route` should start with a slash.
-
-
-
 
 
 

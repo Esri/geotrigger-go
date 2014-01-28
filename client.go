@@ -5,11 +5,8 @@
 // developers.arcgis.com, from which you can create an Application and obtain
 // the necessary credentials to use with this golang library.
 //
-// For more information about the Geotrigger Service, please look here:
+// For more information about the Geotrigger Service, please see:
 // https://developers.arcgis.com/en/geotrigger-service/
-//
-// Documentation for this library can be found on github:
-// https://github.com/Esri/geotrigger_golang
 package geotrigger_golang
 
 // The client manages credentials for an ArcGIS Application or Device based on what you pass in to the
