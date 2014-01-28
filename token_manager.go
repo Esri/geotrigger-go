@@ -108,8 +108,13 @@ func (tm *tknManager) manageTokens() {
 					refreshInProgress = true
 					go tokenApproved(nextRequest, tm.refreshToken, false)
 				} else if nextRequest.purpose == accessNeeded {
-					refreshInProgress = false
-					go tokenApproved(nextRequest, tm.accessToken, true)
+					if tm.expiresAt <= time.Now().Unix() {
+						refreshInProgress = true
+						go tokenApproved(nextRequest, tm.refreshToken, false)
+					} else {
+						refreshInProgress = false
+						go tokenApproved(nextRequest, tm.accessToken, true)
+					}
 				}
 			}
 		case tr.purpose == refreshComplete:

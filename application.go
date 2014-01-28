@@ -15,16 +15,11 @@ type applicationTokenResponse struct {
 	ExpiresIn   int64  `json:"expires_in"`
 }
 
-func (application *application) Request(route string, params map[string]interface{},
-	responseJSON interface{}) chan error {
-	errorChan := make(chan error)
-	go func() {
-		errorChan <- geotriggerPost(application, route, params, responseJSON)
-	}()
-	return errorChan
+func (application *application) request(route string, params map[string]interface{}, responseJSON interface{}) error {
+	return geotriggerPost(application, route, params, responseJSON)
 }
 
-func (application *application) GetSessionInfo() map[string]string {
+func (application *application) info() map[string]string {
 	return map[string]string{
 		"access_token":  application.getAccessToken(),
 		"client_id":     application.clientId,
@@ -32,33 +27,29 @@ func (application *application) GetSessionInfo() map[string]string {
 	}
 }
 
-func newApplication(clientId string, clientSecret string) (Session, chan error) {
+func newApplication(clientId string, clientSecret string) (session, error) {
 	application := &application{
 		clientId:     clientId,
 		clientSecret: clientSecret,
 	}
 
-	errorChan := make(chan error)
-	go application.requestAccess(errorChan)
+	if err := application.requestAccess(); err != nil {
+		return nil, err
+	}
 
-	return application, errorChan
+	return application, nil
 }
 
-func (application *application) requestAccess(errorChan chan error) {
+func (application *application) requestAccess() error {
 	var appTokenResponse applicationTokenResponse
 	if err := agoPost(ago_token_route, application.prepareTokenRequestValues(), &appTokenResponse); err != nil {
-		go func() {
-			errorChan <- err
-		}()
+		return err
 	}
 
 	// store the new access token
 	application.tokenManager = newTokenManager(appTokenResponse.AccessToken, "", appTokenResponse.ExpiresIn)
 
-	go func() {
-		errorChan <- nil
-	}()
-	return
+	return nil
 }
 
 func (application *application) refresh(refreshToken string) error {

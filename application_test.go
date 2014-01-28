@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -39,17 +38,15 @@ func TestApplicationAccessRequestFail(t *testing.T) {
 	defer agoUrlRestorer.restore()
 
 	expectedErrorMessage := "Error from /sharing/oauth2/token, code: 999. Message: invalid_request"
-	_, errChan := NewApplicationClient("bad_client_id", "bad_client_secret")
+	_, err = NewApplication("bad_client_id", "bad_client_secret")
 
-	error := <-errChan
-
-	refute(t, error, nil)
-	expect(t, error.Error(), expectedErrorMessage)
+	refute(t, err, nil)
+	expect(t, err.Error(), expectedErrorMessage)
 }
 
 func TestApplicationRegisterSuccess(t *testing.T) {
 	client := getValidApplicationClient(t)
-	sessionInfo := client.GetSessionInfo()
+	sessionInfo := client.Info()
 	expect(t, sessionInfo["access_token"], "good_access_token")
 	expect(t, sessionInfo["client_id"], "good_client_id")
 	expect(t, sessionInfo["client_secret"], "good_client_secret")
@@ -162,18 +159,16 @@ func TestApplicationFullWorkflowWithRefresh(t *testing.T) {
 	}
 	defer agoUrlRestorer.restore()
 
-	client, errChan := NewApplicationClient("good_client_id", "good_client_secret")
+	client, err := NewApplication("good_client_id", "good_client_secret")
 
-	error := <-errChan
-	expect(t, error, nil)
+	expect(t, err, nil)
 
 	params := map[string]interface{}{
 		"tags": "derp",
 	}
 	var responseJSON map[string]interface{}
-	errChan = client.Request("/some/route", params, &responseJSON)
 
-	err = <-errChan
+	err = client.Request("/some/route", params, &responseJSON)
 	expect(t, err, nil)
 	expect(t, responseJSON["triggers"].([]interface{})[0].(map[string]interface{})["triggerId"], "6fd01180fa1a012f27f1705681b27197")
 	expect(t, responseJSON["boundingBox"].(map[string]interface{})["xmax"], -122.45)
@@ -191,66 +186,6 @@ func TestApplicationConcurrentRefreshWaitingAtRefreshStep(t *testing.T) {
 		getValidApplicationClient(t))
 	expect(t, badTokenAttempts, 4)
 	expect(t, goodTokenAttempts, 4)
-}
-
-func TestApplicationRepeatedConcurrentBatchesOfRequestsWithRefresh(t *testing.T) {
-	client := getValidApplicationClient(t)
-	badTokenAttempts, goodTokenAttempts := testApplicationConcurrentRefreshWaitingAtRefreshStep(t, client)
-	expect(t, badTokenAttempts, 4)
-	expect(t, goodTokenAttempts, 4)
-	badTokenAttempts, goodTokenAttempts = testApplicationConcurrentRefreshWaitingAtAccessStep(t, client)
-	expect(t, badTokenAttempts, 0)
-	expect(t, goodTokenAttempts, 4)
-
-	newClient := getValidApplicationClient(t)
-	badTokenAttempts, goodTokenAttempts = testApplicationConcurrentRefreshWaitingAtAccessStep(t, newClient)
-	expect(t, badTokenAttempts, 1)
-	expect(t, goodTokenAttempts, 4)
-	badTokenAttempts, goodTokenAttempts = testApplicationConcurrentRefreshWaitingAtRefreshStep(t, newClient)
-	expect(t, badTokenAttempts, 0)
-	expect(t, goodTokenAttempts, 4)
-
-	anotherClient := getValidApplicationClient(t)
-	var totalBadTokenAttempts, totalGoodTokenAttempts int
-	var w sync.WaitGroup
-
-	// don't go beyond 4 here, as the test server will start closing connections
-	// if the request rate gets too high, resulting in test failures.  16 total is
-	// enough to prove the test and isn't overwhelming the server when running on my MBA.
-	w.Add(4)
-	go func() {
-		bt, gt := testApplicationConcurrentRefreshWaitingAtAccessStep(t, anotherClient)
-		totalBadTokenAttempts += bt
-		totalGoodTokenAttempts += gt
-		w.Done()
-	}()
-	go func() {
-		bt, gt := testApplicationConcurrentRefreshWaitingAtRefreshStep(t, anotherClient)
-		totalBadTokenAttempts += bt
-		totalGoodTokenAttempts += gt
-		w.Done()
-	}()
-	go func() {
-		bt, gt := testApplicationConcurrentRefreshWaitingAtRefreshStep(t, anotherClient)
-		totalBadTokenAttempts += bt
-		totalGoodTokenAttempts += gt
-		w.Done()
-	}()
-	go func() {
-		bt, gt := testApplicationConcurrentRefreshWaitingAtAccessStep(t, anotherClient)
-		totalBadTokenAttempts += bt
-		totalGoodTokenAttempts += gt
-		w.Done()
-	}()
-	w.Wait()
-
-	// 10 here because, starting with routine at the top, we have: 1 + 4 + 4 + 1
-	// everything runs at once, which means we can add up the expectations as if
-	// we were running each of these 4 routines separately with separate clients
-	// as the timing is not a factor as it is in the first batch of sequential runs above.
-	expect(t, totalBadTokenAttempts, 10)
-	// 16 here because 4 * 4 (each routine uses a good token 4 times)
-	expect(t, totalGoodTokenAttempts, 16)
 }
 
 func TestApplicationRecoveryFromErrorDuringRefreshWithRoutinesWaitingForAccess(t *testing.T) {
@@ -339,10 +274,8 @@ func getValidApplicationClient(t *testing.T) *Client {
 	}
 	defer agoUrlRestorer.restore()
 
-	client, errChan := NewApplicationClient("good_client_id", "good_client_secret")
+	client, err := NewApplication("good_client_id", "good_client_secret")
 
-	error := <-errChan
-
-	expect(t, error, nil)
+	expect(t, err, nil)
 	return client
 }

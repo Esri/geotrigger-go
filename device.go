@@ -31,15 +31,11 @@ type deviceRefreshResponse struct {
 	ExpiresIn   int64  `json:"expires_in"`
 }
 
-func (device *device) Request(route string, params map[string]interface{}, responseJSON interface{}) chan error {
-	errorChan := make(chan error)
-	go func() {
-		errorChan <- geotriggerPost(device, route, params, responseJSON)
-	}()
-	return errorChan
+func (device *device) request(route string, params map[string]interface{}, responseJSON interface{}) error {
+	return geotriggerPost(device, route, params, responseJSON)
 }
 
-func (device *device) GetSessionInfo() map[string]string {
+func (device *device) info() map[string]string {
 	return map[string]string{
 		"access_token":  device.getAccessToken(),
 		"refresh_token": device.getRefreshToken(),
@@ -48,18 +44,19 @@ func (device *device) GetSessionInfo() map[string]string {
 	}
 }
 
-func newDevice(clientId string) (Session, chan error) {
+func newDevice(clientId string) (session, error) {
 	device := &device{
 		clientId: clientId,
 	}
 
-	errorChan := make(chan error)
-	go device.register(errorChan)
+	if err := device.register(); err != nil {
+		return nil, err
+	}
 
-	return device, errorChan
+	return device, nil
 }
 
-func (device *device) register(errorChan chan error) {
+func (device *device) register() error {
 	// prep values
 	values := url.Values{}
 	values.Set("client_id", device.clientId)
@@ -68,19 +65,13 @@ func (device *device) register(errorChan chan error) {
 	// make request
 	var deviceRegisterResponse deviceRegisterResponse
 	if err := agoPost(ago_register_route, []byte(values.Encode()), &deviceRegisterResponse); err != nil {
-		go func() {
-			errorChan <- err
-		}()
-		return
+		return err
 	}
 
 	device.deviceId = deviceRegisterResponse.DeviceJSON.DeviceId
 	device.tokenManager = newTokenManager(deviceRegisterResponse.DeviceTokenJSON.AccessToken,
 		deviceRegisterResponse.DeviceTokenJSON.RefreshToken, deviceRegisterResponse.DeviceTokenJSON.ExpiresIn)
-
-	go func() {
-		errorChan <- nil
-	}()
+	return nil
 }
 
 func (device *device) refresh(refreshToken string) error {

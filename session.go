@@ -24,26 +24,9 @@ const (
 
 // The Session interface obfuscates whether we are a device or an application,
 // both of which implement the interface slightly differently.
-type Session interface {
-	// The method to use for making requests!
-	// `responseJSON` can be a struct modeling the expected JSON, or an arbitrary JSON map (map[string]interface{})
-	// that can be used with the helper methods `GetValueFromJSONObject` and `GetValueFromJSONArray`.
-	// `route` should start with a slash.
-	// The channel that is returned will be written to once. If the read value is a nil,
-	// then the provided responseJSON has been successfully inflated and is ready for use.
-	// Otherwise, the error will contain information about what went wrong.
-	Request(string, map[string]interface{}, interface{}) chan error
-	// Get info about the current session.
-	// If this is an application session, the following keys will be present:
-	// `access_token`
-	// `client_id`
-	// `client_secret`
-	// If this is a device session, the following keys will be present:
-	// `access_token`
-	// `refresh_token`
-	// `device_id`
-	// `client_id`
-	GetSessionInfo() map[string]string
+type session interface {
+	request(string, map[string]interface{}, interface{}) error
+	info() map[string]string
 	// A session is also a TokenManager
 	tokenManager
 	// used internally when token expires
@@ -63,7 +46,7 @@ type errorJSON struct {
 type refreshHandler func() (string, error)
 
 // funcs below manage http specifically for geotrigger service and AGO credentials
-func doRefresh(session Session, token string) (string, error) {
+func doRefresh(session session, token string) (string, error) {
 	error := session.refresh(token)
 	var refreshResult *tokenRequest
 	var accessToken string
@@ -79,7 +62,7 @@ func doRefresh(session Session, token string) (string, error) {
 	return accessToken, error
 }
 
-func geotriggerPost(session Session, route string, params map[string]interface{}, responseJSON interface{}) error {
+func geotriggerPost(session session, route string, params map[string]interface{}, responseJSON interface{}) error {
 	body, err := json.Marshal(params)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error while marshaling params into JSON for route: %s. %s",

@@ -7,17 +7,17 @@ import (
 )
 
 func TestNewTokenManager(t *testing.T) {
-	tm := newTokenManager("derp", "herp", 1800)
+	tm := newTokenManager("acc", "rfr", 1800)
 	refute(t, tm, nil)
-	expect(t, tm.getAccessToken(), "derp")
-	expect(t, tm.getRefreshToken(), "herp")
+	expect(t, tm.getAccessToken(), "acc")
+	expect(t, tm.getRefreshToken(), "rfr")
 
 	tm.setAccessToken("merp")
 	expect(t, tm.getAccessToken(), "merp")
 }
 
 func TestSimpleTokenRequest(t *testing.T) {
-	tm := newTokenManager("derp", "herp", 1800)
+	tm := newTokenManager("acc", "rfr", 1800)
 
 	// access token req
 	tr := &tokenRequest{
@@ -29,7 +29,7 @@ func TestSimpleTokenRequest(t *testing.T) {
 	tokenResp := <-tr.tokenResponses
 	refute(t, tokenResp, nil)
 	expect(t, tokenResp.isAccessToken, true)
-	expect(t, tokenResp.token, "derp")
+	expect(t, tokenResp.token, "acc")
 
 	// refresh token req
 	tr = &tokenRequest{
@@ -41,11 +41,11 @@ func TestSimpleTokenRequest(t *testing.T) {
 	tokenResp = <-tr.tokenResponses
 	refute(t, tokenResp, nil)
 	expect(t, tokenResp.isAccessToken, false)
-	expect(t, tokenResp.token, "herp")
+	expect(t, tokenResp.token, "rfr")
 }
 
 func TestUnknownPurposeInt(t *testing.T) {
-	tm := newTokenManager("derp", "herp", 1800)
+	tm := newTokenManager("acc", "rfr", 1800)
 
 	tr := &tokenRequest{
 		purpose:        39846,
@@ -58,7 +58,7 @@ func TestUnknownPurposeInt(t *testing.T) {
 }
 
 func TestConcurrentTokenAccess(t *testing.T) {
-	tm := newTokenManager("derp", "herp", 1800)
+	tm := newTokenManager("acc", "rfr", 1800)
 
 	tr1 := &tokenRequest{
 		purpose:        accessNeeded,
@@ -91,35 +91,179 @@ func TestConcurrentTokenAccess(t *testing.T) {
 		tokenResp := <-tr1.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr2.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr3.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr4.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "acc")
+		w.Done()
+	}()
+	w.Wait()
+}
+
+func TestTokenExpiry(t *testing.T) {
+	// refresh succeeds first
+	tm := newTokenManager("acc", "rfr", -100)
+
+	tr1 := &tokenRequest{
+		purpose:        accessNeeded,
+		tokenResponses: make(chan *tokenResponse),
+	}
+
+	tr2 := &tokenRequest{
+		purpose:        accessNeeded,
+		tokenResponses: make(chan *tokenResponse),
+	}
+
+	tr3 := &tokenRequest{
+		purpose:        accessNeeded,
+		tokenResponses: make(chan *tokenResponse),
+	}
+
+	tr4 := &tokenRequest{
+		purpose:        accessNeeded,
+		tokenResponses: make(chan *tokenResponse),
+	}
+
+	go tm.tokenRequest(tr1)
+	time.Sleep(20 * time.Millisecond) // pause to ensure tr1 arrives first
+	go tm.tokenRequest(tr2)
+	go tm.tokenRequest(tr3)
+	go tm.tokenRequest(tr4)
+
+	var w sync.WaitGroup
+	w.Add(4)
+	go func() {
+		tokenResp := <-tr1.tokenResponses
+		refute(t, tokenResp, nil)
+		expect(t, tokenResp.isAccessToken, false)
+		expect(t, tokenResp.token, "rfr")
+
+		tm.setAccessToken("new acc")
+		rc := &tokenRequest{
+			purpose:        refreshComplete,
+			tokenResponses: nil,
+		}
+		go tm.tokenRequest(rc)
+		w.Done()
+	}()
+	go func() {
+		tokenResp := <-tr2.tokenResponses
+		refute(t, tokenResp, nil)
+		expect(t, tokenResp.isAccessToken, true)
+		expect(t, tokenResp.token, "new acc")
+		w.Done()
+	}()
+	go func() {
+		tokenResp := <-tr3.tokenResponses
+		refute(t, tokenResp, nil)
+		expect(t, tokenResp.isAccessToken, true)
+		expect(t, tokenResp.token, "new acc")
+		w.Done()
+	}()
+	go func() {
+		tokenResp := <-tr4.tokenResponses
+		refute(t, tokenResp, nil)
+		expect(t, tokenResp.isAccessToken, true)
+		expect(t, tokenResp.token, "new acc")
+		w.Done()
+	}()
+	w.Wait()
+
+	// refresh fails first
+	tm.setExpiresAt(-100)
+	tr5 := &tokenRequest{
+		purpose:        accessNeeded,
+		tokenResponses: make(chan *tokenResponse),
+	}
+
+	tr6 := &tokenRequest{
+		purpose:        accessNeeded,
+		tokenResponses: make(chan *tokenResponse),
+	}
+
+	tr7 := &tokenRequest{
+		purpose:        accessNeeded,
+		tokenResponses: make(chan *tokenResponse),
+	}
+
+	tr8 := &tokenRequest{
+		purpose:        accessNeeded,
+		tokenResponses: make(chan *tokenResponse),
+	}
+
+	go tm.tokenRequest(tr5)
+	time.Sleep(20 * time.Millisecond) // pause to ensure tr5 arrives first
+	go tm.tokenRequest(tr6)
+	time.Sleep(20 * time.Millisecond) // pause to ensure tr6 arrives second
+	go tm.tokenRequest(tr7)
+	go tm.tokenRequest(tr8)
+
+	w.Add(4)
+	go func() {
+		tokenResp := <-tr5.tokenResponses
+		refute(t, tokenResp, nil)
+		expect(t, tokenResp.isAccessToken, false)
+		expect(t, tokenResp.token, "rfr")
+
+		rc := &tokenRequest{
+			purpose:        refreshFailed,
+			tokenResponses: nil,
+		}
+		go tm.tokenRequest(rc)
+		w.Done()
+	}()
+	go func() {
+		tokenResp := <-tr6.tokenResponses
+		refute(t, tokenResp, nil)
+		expect(t, tokenResp.isAccessToken, false)
+		expect(t, tokenResp.token, "rfr")
+
+		tm.setAccessToken("new acc")
+		rc := &tokenRequest{
+			purpose:        refreshComplete,
+			tokenResponses: nil,
+		}
+
+		go tm.tokenRequest(rc)
+		w.Done()
+	}()
+	go func() {
+		tokenResp := <-tr7.tokenResponses
+		refute(t, tokenResp, nil)
+		expect(t, tokenResp.isAccessToken, true)
+		expect(t, tokenResp.token, "new acc")
+		w.Done()
+	}()
+	go func() {
+		tokenResp := <-tr8.tokenResponses
+		refute(t, tokenResp, nil)
+		expect(t, tokenResp.isAccessToken, true)
+		expect(t, tokenResp.token, "new acc")
 		w.Done()
 	}()
 	w.Wait()
 }
 
 func TestMultipleRoutinesNeedRefreshToken(t *testing.T) {
-	tm := newTokenManager("derp", "herp", 1800)
+	tm := newTokenManager("acc", "rfr", 1800)
 
 	// refresh succeeds first
 	tr1 := &tokenRequest{
@@ -154,29 +298,30 @@ func TestMultipleRoutinesNeedRefreshToken(t *testing.T) {
 		tokenResp := <-tr2.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "new acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr3.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "new acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr4.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "new acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr1.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, false)
-		expect(t, tokenResp.token, "herp")
+		expect(t, tokenResp.token, "rfr")
 
+		tm.setAccessToken("new acc")
 		rc := &tokenRequest{
 			purpose:        refreshComplete,
 			tokenResponses: nil,
@@ -219,22 +364,23 @@ func TestMultipleRoutinesNeedRefreshToken(t *testing.T) {
 		tokenResp := <-tr7.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "new acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr8.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "new acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr6.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, false)
-		expect(t, tokenResp.token, "herp")
+		expect(t, tokenResp.token, "rfr")
 
+		tm.setAccessToken("new acc")
 		rc := &tokenRequest{
 			purpose:        refreshComplete,
 			tokenResponses: nil,
@@ -246,7 +392,7 @@ func TestMultipleRoutinesNeedRefreshToken(t *testing.T) {
 		tokenResp := <-tr5.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, false)
-		expect(t, tokenResp.token, "herp")
+		expect(t, tokenResp.token, "rfr")
 
 		rc := &tokenRequest{
 			purpose:        refreshFailed,
@@ -259,7 +405,7 @@ func TestMultipleRoutinesNeedRefreshToken(t *testing.T) {
 }
 
 func TestRefreshWithMultipleRoutinesNeedAccessToken(t *testing.T) {
-	tm := newTokenManager("derp", "herp", 1800)
+	tm := newTokenManager("acc", "rfr", 1800)
 
 	// refresh succeeds first
 	tr1 := &tokenRequest{
@@ -294,29 +440,30 @@ func TestRefreshWithMultipleRoutinesNeedAccessToken(t *testing.T) {
 		tokenResp := <-tr2.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "new acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr3.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "new acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr4.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "new acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr1.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, false)
-		expect(t, tokenResp.token, "herp")
+		expect(t, tokenResp.token, "rfr")
 
+		tm.setAccessToken("new acc")
 		rc := &tokenRequest{
 			purpose:        refreshComplete,
 			tokenResponses: nil,
@@ -359,21 +506,21 @@ func TestRefreshWithMultipleRoutinesNeedAccessToken(t *testing.T) {
 		tokenResp := <-tr7.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "new acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr8.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "new acc")
 		w.Done()
 	}()
 	go func() {
 		tokenResp := <-tr6.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "derp")
+		expect(t, tokenResp.token, "new acc")
 
 		rn := &tokenRequest{
 			purpose:        refreshNeeded,
@@ -385,8 +532,9 @@ func TestRefreshWithMultipleRoutinesNeedAccessToken(t *testing.T) {
 		refResp := <-rn.tokenResponses
 		refute(t, refResp, nil)
 		expect(t, refResp.isAccessToken, false)
-		expect(t, refResp.token, "herp")
+		expect(t, refResp.token, "rfr")
 
+		tm.setAccessToken("new acc")
 		rc := &tokenRequest{
 			purpose:        refreshComplete,
 			tokenResponses: nil,
@@ -398,7 +546,7 @@ func TestRefreshWithMultipleRoutinesNeedAccessToken(t *testing.T) {
 		tokenResp := <-tr5.tokenResponses
 		refute(t, tokenResp, nil)
 		expect(t, tokenResp.isAccessToken, false)
-		expect(t, tokenResp.token, "herp")
+		expect(t, tokenResp.token, "rfr")
 
 		rc := &tokenRequest{
 			purpose:        refreshFailed,

@@ -220,41 +220,36 @@ func testConcurrentRefresh(t *testing.T, client *Client, grantType string, clien
 	}
 	var responseJSON4 map[string]interface{}
 
-	errChan1 := client.Request("/some/route", params1, &responseJSON1)
-	if pauseAfterFirstReq {
-		time.Sleep(20 * time.Millisecond)
-	}
-	errChan2 := client.Request("/some/route", params2, &responseJSON2)
-	errChan3 := client.Request("/some/route", params3, &responseJSON3)
-	errChan4 := client.Request("/some/route", params4, &responseJSON4)
-
 	var w sync.WaitGroup
 	var errorCount int
 	w.Add(4)
 	go func() {
-		error := <-errChan1
-		if error != nil {
+		err := client.Request("/some/route", params1, &responseJSON1)
+		if err != nil {
+			errorCount++
+		}
+		w.Done()
+	}()
+	if pauseAfterFirstReq {
+		time.Sleep(20 * time.Millisecond)
+	}
+	go func() {
+		err := client.Request("/some/route", params2, &responseJSON2)
+		if err != nil {
 			errorCount++
 		}
 		w.Done()
 	}()
 	go func() {
-		error := <-errChan2
-		if error != nil {
+		err := client.Request("/some/route", params3, &responseJSON3)
+		if err != nil {
 			errorCount++
 		}
 		w.Done()
 	}()
 	go func() {
-		error := <-errChan3
-		if error != nil {
-			errorCount++
-		}
-		w.Done()
-	}()
-	go func() {
-		error := <-errChan4
-		if error != nil {
+		err := client.Request("/some/route", params4, &responseJSON4)
+		if err != nil {
 			errorCount++
 		}
 		w.Done()
