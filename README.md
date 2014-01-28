@@ -9,8 +9,8 @@ an Application. This assumes you have a developer account on
 developers.arcgis.com, from which you can create an Application and obtain
 the necessary credentials to use with this golang library.
 
-For more information about the Geotrigger Service, please go to
-<<a href="https://developers.arcgis.com/en/geotrigger-service/">https://developers.arcgis.com/en/geotrigger-service/</a>
+For more information about the Geotrigger Service, please see:
+<a href="https://developers.arcgis.com/en/geotrigger-service/">https://developers.arcgis.com/en/geotrigger-service/</a>
 
 
 
