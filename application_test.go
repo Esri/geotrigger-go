@@ -216,7 +216,7 @@ func TestApplicationRecoveryFromErrorDuringRefreshWithRoutinesWaitingForAccess(t
 	// and they will go ahead and finish.
 	bt, gt := testConcurrentRefresh(t, getValidApplicationClient(t), "client_credentials", "good_client_secret", "",
 		true, true)
-	expect(t, bt, 2)
+	expect(t, bt, 1)
 	expect(t, gt, 3)
 }
 

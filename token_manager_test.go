@@ -519,20 +519,8 @@ func TestRefreshWithMultipleRoutinesNeedAccessToken(t *testing.T) {
 	go func() {
 		tokenResp := <-tr6.tokenResponses
 		refute(t, tokenResp, nil)
-		expect(t, tokenResp.isAccessToken, true)
-		expect(t, tokenResp.token, "new acc")
-
-		rn := &tokenRequest{
-			purpose:        refreshNeeded,
-			tokenResponses: make(chan *tokenResponse),
-		}
-
-		go tm.tokenRequest(rn)
-
-		refResp := <-rn.tokenResponses
-		refute(t, refResp, nil)
-		expect(t, refResp.isAccessToken, false)
-		expect(t, refResp.token, "rfr")
+		expect(t, tokenResp.isAccessToken, false)
+		expect(t, tokenResp.token, "rfr")
 
 		tm.setAccessToken("new acc")
 		rc := &tokenRequest{

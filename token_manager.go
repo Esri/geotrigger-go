@@ -100,22 +100,12 @@ func (tm *tknManager) manageTokens() {
 
 		switch {
 		case tr.purpose == refreshFailed:
-			if (len(waitingRequests) > 0) {
+			if len(waitingRequests) > 0 {
 				nextRequest := waitingRequests[0]
 				waitingRequests = waitingRequests[1:]
 
-				if nextRequest.purpose == refreshNeeded {
-					refreshInProgress = true
-					go tokenApproved(nextRequest, tm.refreshToken, false)
-				} else if nextRequest.purpose == accessNeeded {
-					if tm.expiresAt <= time.Now().Unix() {
-						refreshInProgress = true
-						go tokenApproved(nextRequest, tm.refreshToken, false)
-					} else {
-						refreshInProgress = false
-						go tokenApproved(nextRequest, tm.accessToken, true)
-					}
-				}
+				refreshInProgress = true
+				go tokenApproved(nextRequest, tm.refreshToken, false)
 			}
 		case tr.purpose == refreshComplete:
 			if !refreshInProgress {

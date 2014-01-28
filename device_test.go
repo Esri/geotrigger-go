@@ -255,7 +255,7 @@ func TestDeviceRecoveryFromErrorDuringRefreshWithRoutinesWaitingForAccess(t *tes
 	// That refresh will be communicated to the remaining routines waiting for a token,
 	// and they will go ahead and finish.
 	bt, gt := testConcurrentRefresh(t, getValidDeviceClient(t), "refresh_token", "", "good_refresh_token", true, true)
-	expect(t, bt, 2)
+	expect(t, bt, 1)
 	expect(t, gt, 3)
 }
 

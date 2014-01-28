@@ -1,10 +1,10 @@
 package geotrigger_golang
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
-	"encoding/json"
 )
 
 // A helpful method for unpacking values out of arbitrary JSON objects.
