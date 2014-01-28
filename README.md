@@ -108,7 +108,7 @@ func (client *Client) Request(route string, params map[string]interface{}, respo
 ```
 The method to use for making requests!
 
-`response` can be a pointer to a struct modeling the expected JSON, or to an arbitrary JSON map (map[string]interface{})
+`response` can be a pointer to a struct modeling the expected JSON, or to an arbitrary JSON map (`map[string]interface{}`)
 that can then be used with the helper methods `GetValueFromJSONObject` and `GetValueFromJSONArray`.
 
 `route` should start with a slash.

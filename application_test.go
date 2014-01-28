@@ -175,17 +175,32 @@ func TestApplicationFullWorkflowWithRefresh(t *testing.T) {
 }
 
 func TestApplicationConcurrentRefreshWaitingAtAccessStep(t *testing.T) {
-	badTokenAttempts, goodTokenAttempts := testApplicationConcurrentRefreshWaitingAtAccessStep(t,
-		getValidApplicationClient(t))
-	expect(t, badTokenAttempts, 1)
-	expect(t, goodTokenAttempts, 4)
+	// This will spawn 4 go routines making requests with bad tokens.
+	// The first routine will fire away immediately, get the invalid token response
+	// from the geotrigger server, ask for permission to refresh, and start refreshing the token.
+	// After a delay, the other 3 routines will ask to use the access token,
+	// and end up waiting because a refresh is in progress.
+	// After the first routine successfully refreshes the token, the waiting
+	// routines will be give the message to continue by using the new access token.
+	bt, gt := testConcurrentRefresh(t, getValidApplicationClient(t), "client_credentials", "good_client_secret", "", true, false)
+	expect(t, bt, 1)
+	expect(t, gt, 4)
 }
 
 func TestApplicationConcurrentRefreshWaitingAtRefreshStep(t *testing.T) {
-	badTokenAttempts, goodTokenAttempts := testApplicationConcurrentRefreshWaitingAtRefreshStep(t,
-		getValidApplicationClient(t))
-	expect(t, badTokenAttempts, 4)
-	expect(t, goodTokenAttempts, 4)
+	// This will spawn 4 go routines making requests with bad tokens.
+	// Each routine will get permissions to present the access token to
+	// the geotrigger server.
+	// Whichever routine arrives first will receive the invalid token response will then ask for
+	// permission to refresh the token, and be granted that permission.
+	// The other 3 routines will also ask for permission to refresh, and instead
+	// end up waiting for a reply to that request.
+	// After the first routine successfully refreshes the token, the waiting
+	// routines will be give the message to continue, but not refresh, and
+	// instead use the new access token.
+	bt, gt := testConcurrentRefresh(t, getValidApplicationClient(t), "client_credentials", "good_client_secret", "", false, false)
+	expect(t, bt, 4)
+	expect(t, gt, 4)
 }
 
 func TestApplicationRecoveryFromErrorDuringRefreshWithRoutinesWaitingForAccess(t *testing.T) {
@@ -224,29 +239,40 @@ func TestApplicationRecoveryFromErrorDuringRefreshWithRoutinesWaitingForRefresh(
 	expect(t, gt, 3)
 }
 
-func testApplicationConcurrentRefreshWaitingAtAccessStep(t *testing.T, client *Client) (int, int) {
-	// This will spawn 4 go routines making requests with bad tokens.
-	// The first routine will fire away immediately, get the invalid token response
-	// from the geotrigger server, ask for permission to refresh, and start refreshing the token.
-	// After a delay, the other 3 routines will ask to use the access token,
-	// and end up waiting because a refresh is in progress.
-	// After the first routine successfully refreshes the token, the waiting
-	// routines will be give the message to continue by using the new access token.
-	return testConcurrentRefresh(t, client, "client_credentials", "good_client_secret", "", true, false)
+func testApplicationConcurrentTokenExpirationWaitingAtAccessStep(t *testing.T) {
+	ac := getValidApplicationClient(t)
+	ac.setExpiresAt(-100)
+
+	bt, gt := testConcurrentRefresh(t, ac, "refresh_token", "", "good_refresh_token", true, false)
+	expect(t, bt, 0)
+	expect(t, gt, 4)
 }
 
-func testApplicationConcurrentRefreshWaitingAtRefreshStep(t *testing.T, client *Client) (int, int) {
-	// This will spawn 4 go routines making requests with bad tokens.
-	// Each routine will get permissions to present the access token to
-	// the geotrigger server.
-	// Whichever routine arrives first will receive the invalid token response will then ask for
-	// permission to refresh the token, and be granted that permission.
-	// The other 3 routines will also ask for permission to refresh, and instead
-	// end up waiting for a reply to that request.
-	// After the first routine successfully refreshes the token, the waiting
-	// routines will be give the message to continue, but not refresh, and
-	// instead use the new access token.
-	return testConcurrentRefresh(t, client, "client_credentials", "good_client_secret", "", false, false)
+func testApplicationConcurrentTokenExpirationWaitingAtRefreshStep(t *testing.T) {
+	ac := getValidApplicationClient(t)
+	ac.setExpiresAt(-100)
+
+	bt, gt := testConcurrentRefresh(t, ac, "refresh_token", "", "good_refresh_token", false, false)
+	expect(t, bt, 0)
+	expect(t, gt, 4)
+}
+
+func testApplicationRecoveryFromErrorDuringTokenExpirationWaitingForAccess(t *testing.T) {
+	ac := getValidApplicationClient(t)
+	ac.setExpiresAt(-100)
+
+	bt, gt := testConcurrentRefresh(t, ac, "refresh_token", "", "good_refresh_token", true, true)
+	expect(t, bt, 0)
+	expect(t, gt, 4)
+}
+
+func testApplicationRecoveryFromErrorDuringTokenExpirationWaitingForRefresh(t *testing.T) {
+	ac := getValidApplicationClient(t)
+	ac.setExpiresAt(-100)
+
+	bt, gt := testConcurrentRefresh(t, ac, "refresh_token", "", "good_refresh_token", false, true)
+	expect(t, bt, 0)
+	expect(t, gt, 4)
 }
 
 func getValidApplicationClient(t *testing.T) *Client {
