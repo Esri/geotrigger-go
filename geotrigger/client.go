@@ -1,4 +1,4 @@
-// Package geotrigger_golang provides API access to the Geotrigger Service,
+// Package `geotrigger` provides API access to the Geotrigger Service,
 // a cloud based system of geofencing and push notifications. The library
 // makes it easier to interact with the Geotrigger API as either a Device or
 // an Application. This assumes you have a developer account on
@@ -7,7 +7,7 @@
 //
 // For more information about the Geotrigger Service, please see:
 // https://developers.arcgis.com/en/geotrigger-service/
-package geotrigger_golang
+package geotrigger
 
 // Client manages credentials for an ArcGIS Application or Device based on what
 // you pass in to the provided constructors.

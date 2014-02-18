@@ -1,4 +1,4 @@
-package geotrigger_golang
+package geotrigger
 
 import (
 	"encoding/json"
@@ -12,21 +12,59 @@ import (
 	"time"
 )
 
-func TestApplicationAccessRequestFail(t *testing.T) {
+func TestExistingDevice(t *testing.T) {
+	// a test server to represent the geotrigger server
+	gtServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
+		refute(t, r, nil)
+		expect(t, r.URL.Path, "/some/route")
+		expect(t, r.Header.Get("Content-Type"), "application/json")
+		expect(t, r.Header.Get("X-GT-Client-Name"), "geotrigger_golang")
+		expect(t, r.Header.Get("X-GT-Client-Version"), version)
+		accessToken := r.Header.Get("Authorization")
+		expect(t, strings.Index(accessToken, "Bearer "), 0)
+		accessToken = strings.Split(accessToken, " ")[1]
+		expect(t, accessToken, "good_access_token")
+		contents, _ := ioutil.ReadAll(r.Body)
+		refute(t, len(contents), 0)
+		var params map[string]interface{}
+		_ = json.Unmarshal(contents, &params)
+		expect(t, len(params), 1)
+		expect(t, params["tags"], "derp")
+		fmt.Fprintln(res, `{}`)
+	}))
+	defer gtServer.Close()
+
+	// set the geotrigger url to the url of our test server so we aren't hitting prod
+	gtURLRestorer, err := patch(&geotrigger_base_url, gtServer.URL)
+	if err != nil {
+		t.Error("Error during test setup: %s", err)
+	}
+	defer gtURLRestorer.restore()
+
+	client := ExistingDevice("good_client_id", "device_id", "good_access_token", 1800, "good_refresh_token")
+
+	params := map[string]interface{}{
+		"tags": "derp",
+	}
+	var responseJSON map[string]interface{}
+
+	err = client.Request("/some/route", params, &responseJSON)
+	expect(t, err, nil)
+}
+
+func TestDeviceRegisterFail(t *testing.T) {
 	// a test server to represent AGO
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		refute(t, r, nil)
-		expect(t, r.URL.Path, "/sharing/oauth2/token")
+		expect(t, r.URL.Path, "/sharing/oauth2/registerDevice")
 		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		vals, _ := url.ParseQuery(string(contents))
-		expect(t, len(vals), 4)
+		expect(t, len(vals), 2)
 		expect(t, vals.Get("client_id"), "bad_client_id")
 		expect(t, vals.Get("f"), "json")
-		expect(t, vals.Get("grant_type"), "client_credentials")
-		expect(t, vals.Get("client_secret"), "bad_client_secret")
-		fmt.Fprintln(res, `{"error":{"code":999,"error":"invalid_request","error_description":"Invalid client_id","message":"invalid_request","details":[]}}`)
+		fmt.Fprintln(res, `{"error":{"code":999,"message":"Unable to register device.","details":["'client_id' invalid"]}}`)
 	}))
 	defer agoServer.Close()
 
@@ -37,22 +75,23 @@ func TestApplicationAccessRequestFail(t *testing.T) {
 	}
 	defer agoURLRestorer.restore()
 
-	expectedErrorMessage := "Error from /sharing/oauth2/token, code: 999. Message: invalid_request"
-	_, err = NewApplication("bad_client_id", "bad_client_secret")
+	expectedErrorMessage := "Error from /sharing/oauth2/registerDevice, code: 999. Message: Unable to register device."
+	_, err = NewDevice("bad_client_id")
 
 	refute(t, err, nil)
 	expect(t, err.Error(), expectedErrorMessage)
 }
 
-func TestApplicationRegisterSuccess(t *testing.T) {
-	client := getValidApplicationClient(t)
+func TestDeviceRegisterSuccess(t *testing.T) {
+	client := getValidDeviceClient(t)
 	sessionInfo := client.Info()
 	expect(t, sessionInfo["access_token"], "good_access_token")
+	expect(t, sessionInfo["refresh_token"], "good_refresh_token")
+	expect(t, sessionInfo["device_id"], "device_id")
 	expect(t, sessionInfo["client_id"], "good_client_id")
-	expect(t, sessionInfo["client_secret"], "good_client_secret")
 }
 
-func TestApplicationTokenRefresh(t *testing.T) {
+func TestDeviceTokenRefresh(t *testing.T) {
 	// a test server to represent AGO
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		refute(t, r, nil)
@@ -64,9 +103,9 @@ func TestApplicationTokenRefresh(t *testing.T) {
 		expect(t, len(vals), 4)
 		expect(t, vals.Get("client_id"), "good_client_id")
 		expect(t, vals.Get("f"), "json")
-		expect(t, vals.Get("grant_type"), "client_credentials")
-		expect(t, vals.Get("client_secret"), "good_client_secret")
-		fmt.Fprintln(res, `{"access_token":"refreshed_access_token","expires_in":7200}`)
+		expect(t, vals.Get("grant_type"), "refresh_token")
+		expect(t, vals.Get("refresh_token"), "good_refresh_token")
+		fmt.Fprintln(res, `{"access_token":"refreshed_access_token","expires_in":1800}`)
 	}))
 	defer agoServer.Close()
 
@@ -77,22 +116,22 @@ func TestApplicationTokenRefresh(t *testing.T) {
 	}
 	defer agoURLRestorer.restore()
 
-	testApplication := &application{
-		tokenManager: newTokenManager("old_access_token", "", 7200),
+	testDevice := &device{
+		tokenManager: newTokenManager("old_access_token", "good_refresh_token", 1800),
 		clientID:     "good_client_id",
-		clientSecret: "good_client_secret",
+		deviceID:     "device_id",
 	}
-	expiresAt := time.Now().Unix() + 7200 - 60
+	expiresAt := time.Now().Unix() + 1800 - 60
 
-	err = testApplication.refresh("")
+	err = testDevice.refresh("good_refresh_token")
 	expect(t, err, nil)
-	expect(t, testApplication.getExpiresAt(), expiresAt)
-	expect(t, testApplication.getAccessToken(), "refreshed_access_token")
-	expect(t, testApplication.clientSecret, "good_client_secret")
-	expect(t, testApplication.getRefreshToken(), "")
+	expect(t, testDevice.getExpiresAt(), expiresAt)
+	expect(t, testDevice.getAccessToken(), "refreshed_access_token")
+	expect(t, testDevice.clientID, "good_client_id")
+	expect(t, testDevice.getRefreshToken(), "good_refresh_token")
 }
 
-func TestApplicationFullWorkflowWithRefresh(t *testing.T) {
+func TestDeviceFullWorkflowWithRefresh(t *testing.T) {
 	// a test server to represent the geotrigger server
 	gtServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		refute(t, r, nil)
@@ -128,26 +167,27 @@ func TestApplicationFullWorkflowWithRefresh(t *testing.T) {
 	defer gtURLRestorer.restore()
 
 	// a test server to represent AGO
-	var tokenReqCount int
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
-		tokenReqCount++
 		refute(t, r, nil)
 		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		vals, _ := url.ParseQuery(string(contents))
-		expect(t, len(vals), 4)
-		expect(t, vals.Get("client_id"), "good_client_id")
-		expect(t, vals.Get("f"), "json")
-		expect(t, vals.Get("grant_type"), "client_credentials")
-		expect(t, vals.Get("client_secret"), "good_client_secret")
 
-		if tokenReqCount == 1 {
-			fmt.Fprintln(res, `{"access_token":"old_access_token","expires_in":1800}`)
-		} else if tokenReqCount == 2 {
+		if r.URL.Path == ago_register_route {
+			expect(t, len(vals), 2)
+			expect(t, vals.Get("client_id"), "good_client_id")
+			expect(t, vals.Get("f"), "json")
+			fmt.Fprintln(res, `{"device":{"deviceID":"device_id","client_id":"good_client_id","apnsProdToken":null,"apnsSandboxToken":null,"gcmRegistrationId":null,"registered":1389531528000,"lastAccessed":1389531528000},"deviceToken":{"access_token":"old_access_token","expires_in":1799,"refresh_token":"good_refresh_token"}}`)
+		} else if r.URL.Path == ago_token_route {
+			expect(t, len(vals), 4)
+			expect(t, vals.Get("client_id"), "good_client_id")
+			expect(t, vals.Get("f"), "json")
+			expect(t, vals.Get("grant_type"), "refresh_token")
+			expect(t, vals.Get("refresh_token"), "good_refresh_token")
 			fmt.Fprintln(res, `{"access_token":"refreshed_access_token","expires_in":1800}`)
 		} else {
-			t.Error("Too many requests for application token (should only have been 2).")
+			t.Error(fmt.Sprintf("Unexpected ago request to route: %s", r.URL.Path))
 		}
 	}))
 	defer agoServer.Close()
@@ -159,7 +199,7 @@ func TestApplicationFullWorkflowWithRefresh(t *testing.T) {
 	}
 	defer agoURLRestorer.restore()
 
-	client, err := NewApplication("good_client_id", "good_client_secret")
+	client, err := NewDevice("good_client_id")
 
 	expect(t, err, nil)
 
@@ -174,7 +214,7 @@ func TestApplicationFullWorkflowWithRefresh(t *testing.T) {
 	expect(t, responseJSON["boundingBox"].(map[string]interface{})["xmax"], -122.45)
 }
 
-func TestApplicationConcurrentRefreshWaitingAtAccessStep(t *testing.T) {
+func TestDeviceConcurrentRefreshWaitingAtAccessStep(t *testing.T) {
 	// This will spawn 4 go routines making requests with bad tokens.
 	// The first routine will fire away immediately, get the invalid token response
 	// from the geotrigger server, ask for permission to refresh, and start refreshing the token.
@@ -182,12 +222,12 @@ func TestApplicationConcurrentRefreshWaitingAtAccessStep(t *testing.T) {
 	// and end up waiting because a refresh is in progress.
 	// After the first routine successfully refreshes the token, the waiting
 	// routines will be give the message to continue by using the new access token.
-	bt, gt := testConcurrentRefresh(t, getValidApplicationClient(t), "client_credentials", "good_client_secret", "", true, false)
+	bt, gt := testConcurrentRefresh(t, getValidDeviceClient(t), "refresh_token", "", "good_refresh_token", true, false)
 	expect(t, bt, 1)
 	expect(t, gt, 4)
 }
 
-func TestApplicationConcurrentRefreshWaitingAtRefreshStep(t *testing.T) {
+func TestDeviceConcurrentRefreshWaitingAtRefreshStep(t *testing.T) {
 	// This will spawn 4 go routines making requests with bad tokens.
 	// Each routine will get permissions to present the access token to
 	// the geotrigger server.
@@ -198,12 +238,12 @@ func TestApplicationConcurrentRefreshWaitingAtRefreshStep(t *testing.T) {
 	// After the first routine successfully refreshes the token, the waiting
 	// routines will be give the message to continue, but not refresh, and
 	// instead use the new access token.
-	bt, gt := testConcurrentRefresh(t, getValidApplicationClient(t), "client_credentials", "good_client_secret", "", false, false)
+	bt, gt := testConcurrentRefresh(t, getValidDeviceClient(t), "refresh_token", "", "good_refresh_token", false, false)
 	expect(t, bt, 4)
 	expect(t, gt, 4)
 }
 
-func TestApplicationRecoveryFromErrorDuringRefreshWithRoutinesWaitingForAccess(t *testing.T) {
+func TestDeviceRecoveryFromErrorDuringRefreshWithRoutinesWaitingForAccess(t *testing.T) {
 	// This will spawn 4 go routines making requests with bad tokens.
 	// The first routine will fire away immediately, get the invalid token response
 	// from the geotrigger server, ask for permission to refresh, and start refreshing the token.
@@ -214,13 +254,12 @@ func TestApplicationRecoveryFromErrorDuringRefreshWithRoutinesWaitingForAccess(t
 	// with its actions, prompting another refresh which this time will succeed.
 	// That refresh will be communicated to the remaining routines waiting for a token,
 	// and they will go ahead and finish.
-	bt, gt := testConcurrentRefresh(t, getValidApplicationClient(t), "client_credentials", "good_client_secret", "",
-		true, true)
+	bt, gt := testConcurrentRefresh(t, getValidDeviceClient(t), "refresh_token", "", "good_refresh_token", true, true)
 	expect(t, bt, 1)
 	expect(t, gt, 3)
 }
 
-func TestApplicationRecoveryFromErrorDuringRefreshWithRoutinesWaitingForRefresh(t *testing.T) {
+func TestDeviceRecoveryFromErrorDuringRefreshWithRoutinesWaitingForRefresh(t *testing.T) {
 	// This will spawn 4 go routines making requests with bad tokens.
 	// Each routine will get permissions to present the access token to
 	// the geotrigger server.
@@ -233,63 +272,60 @@ func TestApplicationRecoveryFromErrorDuringRefreshWithRoutinesWaitingForRefresh(
 	// with its actions, prompting another refresh which this time will succeed.
 	// That refresh will be communicated to the remaining routines waiting for a token,
 	// and they will go ahead and finish.
-	bt, gt := testConcurrentRefresh(t, getValidApplicationClient(t), "client_credentials", "good_client_secret", "",
-		false, true)
+	bt, gt := testConcurrentRefresh(t, getValidDeviceClient(t), "refresh_token", "", "good_refresh_token", false, true)
 	expect(t, bt, 4)
 	expect(t, gt, 3)
 }
 
-func TestApplicationConcurrentTokenExpirationWaitingAtAccessStep(t *testing.T) {
-	ac := getValidApplicationClient(t)
-	ac.setExpiresAt(-100)
+func TestDeviceConcurrentTokenExpirationWaitingAtAccessStep(t *testing.T) {
+	dc := getValidDeviceClient(t)
+	dc.setExpiresAt(-100)
 
-	bt, gt := testConcurrentRefresh(t, ac, "client_credentials", "good_client_secret", "", true, false)
+	bt, gt := testConcurrentRefresh(t, dc, "refresh_token", "", "good_refresh_token", true, false)
 	expect(t, bt, 0)
 	expect(t, gt, 4)
 }
 
-func TestApplicationConcurrentTokenExpirationWaitingAtRefreshStep(t *testing.T) {
-	ac := getValidApplicationClient(t)
-	ac.setExpiresAt(-100)
+func TestDeviceConcurrentTokenExpirationWaitingAtRefreshStep(t *testing.T) {
+	dc := getValidDeviceClient(t)
+	dc.setExpiresAt(-100)
 
-	bt, gt := testConcurrentRefresh(t, ac, "client_credentials", "good_client_secret", "", false, false)
+	bt, gt := testConcurrentRefresh(t, dc, "refresh_token", "", "good_refresh_token", false, false)
 	expect(t, bt, 0)
 	expect(t, gt, 4)
 }
 
-func TestApplicationRecoveryFromErrorDuringTokenExpirationWaitingForAccess(t *testing.T) {
-	ac := getValidApplicationClient(t)
-	ac.setExpiresAt(-100)
+func TestDeviceRecoveryFromErrorDuringTokenExpirationWaitingForAccess(t *testing.T) {
+	dc := getValidDeviceClient(t)
+	dc.setExpiresAt(-100)
 
-	bt, gt := testConcurrentRefresh(t, ac, "client_credentials", "good_client_secret", "", true, true)
+	bt, gt := testConcurrentRefresh(t, dc, "refresh_token", "", "good_refresh_token", true, true)
 	expect(t, bt, 0)
 	expect(t, gt, 3)
 }
 
-func TestApplicationRecoveryFromErrorDuringTokenExpirationWaitingForRefresh(t *testing.T) {
-	ac := getValidApplicationClient(t)
-	ac.setExpiresAt(-100)
+func TestDeviceRecoveryFromErrorDuringTokenExpirationWaitingForRefresh(t *testing.T) {
+	dc := getValidDeviceClient(t)
+	dc.setExpiresAt(-100)
 
-	bt, gt := testConcurrentRefresh(t, ac, "client_credentials", "good_client_secret", "", false, true)
+	bt, gt := testConcurrentRefresh(t, dc, "refresh_token", "", "good_refresh_token", false, true)
 	expect(t, bt, 0)
 	expect(t, gt, 3)
 }
 
-func getValidApplicationClient(t *testing.T) *Client {
+func getValidDeviceClient(t *testing.T) *Client {
 	// a test server to represent AGO
 	agoServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
 		refute(t, r, nil)
-		expect(t, r.URL.Path, "/sharing/oauth2/token")
+		expect(t, r.URL.Path, "/sharing/oauth2/registerDevice")
 		expect(t, r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
 		contents, _ := ioutil.ReadAll(r.Body)
 		refute(t, len(contents), 0)
 		vals, _ := url.ParseQuery(string(contents))
-		expect(t, len(vals), 4)
+		expect(t, len(vals), 2)
 		expect(t, vals.Get("client_id"), "good_client_id")
 		expect(t, vals.Get("f"), "json")
-		expect(t, vals.Get("grant_type"), "client_credentials")
-		expect(t, vals.Get("client_secret"), "good_client_secret")
-		fmt.Fprintln(res, `{"access_token":"good_access_token","expires_in":7200}`)
+		fmt.Fprintln(res, `{"device":{"deviceID":"device_id","client_id":"good_client_id","apnsProdToken":null,"apnsSandboxToken":null,"gcmRegistrationId":null,"registered":1389531528000,"lastAccessed":1389531528000},"deviceToken":{"access_token":"good_access_token","expires_in":1799,"refresh_token":"good_refresh_token"}}`)
 	}))
 	defer agoServer.Close()
 
@@ -300,7 +336,7 @@ func getValidApplicationClient(t *testing.T) *Client {
 	}
 	defer agoURLRestorer.restore()
 
-	client, err := NewApplication("good_client_id", "good_client_secret")
+	client, err := NewDevice("good_client_id")
 
 	expect(t, err, nil)
 	return client

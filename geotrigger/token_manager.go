@@ -1,4 +1,4 @@
-package geotrigger_golang
+package geotrigger
 
 import (
 	"fmt"
