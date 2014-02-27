@@ -119,7 +119,7 @@ func TestParseJSONResponse(t *testing.T) {
 	expect(t, len(goodArray), 3)
 
 	var badJSON TriggerList
-	expectedError = `Error parsing response: ["herp", "derp", "dorp"]  Error: json: cannot unmarshal array into Go value of type geotrigger_golang.TriggerList`
+	expectedError = `Error parsing response: ["herp", "derp", "dorp"]  Error: json: cannot unmarshal array into Go value of type geotrigger.TriggerList`
 	err = parseJSONResponse(jsonArrayData, &badJSON)
 	refute(t, err, nil)
 	expect(t, err.Error(), expectedError)
@@ -233,7 +233,7 @@ func TestValueGetters(t *testing.T) {
 	var wrongType1 BoundingBox
 	err = GetValueFromJSONObject(responseJSON, "triggers", &wrongType1)
 	refute(t, err, nil)
-	expect(t, err.Error(), "Provided reference is to a value of type geotrigger_golang.BoundingBox that cannot be assigned to type found in JSON: []interface {}.")
+	expect(t, err.Error(), "Provided reference is to a value of type geotrigger.BoundingBox that cannot be assigned to type found in JSON: []interface {}.")
 	expect(t, notAPointer3.Xmin, float64(0))
 
 	var wrongType2 []interface{}

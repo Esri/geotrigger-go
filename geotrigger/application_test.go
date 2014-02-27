@@ -98,7 +98,7 @@ func TestApplicationFullWorkflowWithRefresh(t *testing.T) {
 		refute(t, r, nil)
 		expect(t, r.URL.Path, "/some/route")
 		expect(t, r.Header.Get("Content-Type"), "application/json")
-		expect(t, r.Header.Get("X-GT-Client-Name"), "geotrigger_golang")
+		expect(t, r.Header.Get("X-GT-Client-Name"), "geotrigger-go")
 		expect(t, r.Header.Get("X-GT-Client-Version"), version)
 		accessToken := r.Header.Get("Authorization")
 		expect(t, strings.Index(accessToken, "Bearer "), 0)

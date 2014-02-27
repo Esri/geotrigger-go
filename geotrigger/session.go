@@ -111,7 +111,7 @@ func geotriggerPost(session session, route string, params map[string]interface{}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-GT-Client-Name", "geotrigger_golang")
+	req.Header.Set("X-GT-Client-Name", "geotrigger-go")
 	req.Header.Set("X-GT-Client-Version", version)
 
 	return post(req, body, responseJSON, refreshFunc)
