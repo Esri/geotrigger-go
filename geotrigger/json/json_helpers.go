@@ -1,7 +1,6 @@
-package geotrigger
+package json
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -69,58 +68,20 @@ func setVal(value interface{}, jsonVal interface{}) (err error) {
 			expectedType, actualType)
 	}
 
-	// recover from any panics that might occur below, although we should be safe
-	defer func() {
-		if r := recover(); r != nil {
-			switch x := r.(type) {
-			case string:
-				err = errors.New(x)
-			case error:
-				err = x
-			default:
-				err = errors.New("Panic during assignment from JSON to provided interface value.")
-			}
-		}
-	}()
-
 	// Time to set the new value being pointed to by the passed in interface.
 	// We know it's a pointer, so its value will be a reference to the value
 	// we are actually interested in changing.
 	pv := reflect.ValueOf(value)
+	if !pv.IsValid() {
+		// This should be a rare occurrence.
+		// the value provided could not be reflected, and we have an invalid Value here
+		// so just attempt to use the zero value for the destination type.
+		pv = reflect.Zero(actualType)
+	}
 	// Elem() gets the value being pointed to,
 	v := pv.Elem()
 	// and we can set it directly to what we found in the JSON, since we
 	// have already checked that they the JSON value is assignable.
 	v.Set(reflect.ValueOf(jsonVal))
 	return
-}
-
-func errorCheck(resp []byte) *errorResponse {
-	var errorContainer errorResponse
-	if err := json.Unmarshal(resp, &errorContainer); err != nil {
-		// Don't return an error here, as it is possible for the response
-		// to not be parsed into an errorResponse, causing an error to be thrown, but still
-		// be valid, ie: the root element of the response is an array.
-		// We are just looking to see if we can spot a known server error anyway.
-		return nil
-	}
-
-	if errorContainer.Error.Code > 0 && len(errorContainer.Error.Message) > 0 {
-		return &errorContainer
-	}
-
-	return nil
-}
-
-func parseJSONResponse(resp []byte, responseJSON interface{}) error {
-	t := reflect.TypeOf(responseJSON)
-	if t == nil || t.Kind() != reflect.Ptr {
-		return fmt.Errorf("Provided responseJSON interface should be a pointer (to struct or map).")
-	}
-
-	if err := json.Unmarshal(resp, responseJSON); err != nil {
-		return fmt.Errorf("Error parsing response: %s  Error: %s", string(resp), err)
-	}
-
-	return nil
 }

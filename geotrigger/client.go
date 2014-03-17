@@ -37,6 +37,7 @@ func ExistingDevice(clientID string, deviceID string, accessToken string, expire
 	device := &device{
 		clientID: clientID,
 		deviceID: deviceID,
+		env:      defEnv,
 	}
 
 	device.tokenManager = newTokenManager(accessToken, refreshToken, expiresIn)
@@ -49,8 +50,6 @@ func ExistingDevice(clientID string, deviceID string, accessToken string, expire
 // `response` can be a pointer to a struct modeling the expected JSON, or to an
 // arbitrary JSON map (`map[string]interface{}`) that can then be used with the
 // helper methods `GetValueFromJSONObject` and `GetValueFromJSONArray`.
-//
-// `route` must start with a slash.
 func (client *Client) Request(route string, params map[string]interface{}, response interface{}) error {
 	return client.request(route, params, response)
 }

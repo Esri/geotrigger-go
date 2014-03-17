@@ -8,6 +8,7 @@ type application struct {
 	tokenManager
 	clientID     string
 	clientSecret string
+	env          *environment
 }
 
 type applicationTokenResponse struct {
@@ -16,7 +17,7 @@ type applicationTokenResponse struct {
 }
 
 func (application *application) request(route string, params map[string]interface{}, responseJSON interface{}) error {
-	return geotriggerPost(application, route, params, responseJSON)
+	return geotriggerPost(application.env, application, route, params, responseJSON)
 }
 
 func (application *application) info() map[string]string {
@@ -31,13 +32,15 @@ func newApplication(clientID string, clientSecret string) (session, error) {
 	application := &application{
 		clientID:     clientID,
 		clientSecret: clientSecret,
+		env:          defEnv,
 	}
 	return application, application.requestAccess()
 }
 
 func (application *application) requestAccess() error {
 	var appTokenResponse applicationTokenResponse
-	if err := agoPost(ago_token_route, application.prepareTokenRequestValues(), &appTokenResponse); err != nil {
+	if err := agoPost(application.env, ago_token_route, application.prepareTokenRequestValues(),
+		&appTokenResponse); err != nil {
 		return err
 	}
 
@@ -49,7 +52,8 @@ func (application *application) requestAccess() error {
 
 func (application *application) refresh(refreshToken string) error {
 	var appTokenResponse applicationTokenResponse
-	if err := agoPost(ago_token_route, application.prepareTokenRequestValues(), &appTokenResponse); err != nil {
+	if err := agoPost(application.env, ago_token_route, application.prepareTokenRequestValues(),
+		&appTokenResponse); err != nil {
 		return err
 	}
 
@@ -68,4 +72,8 @@ func (application *application) prepareTokenRequestValues() []byte {
 	values.Set("grant_type", "client_credentials")
 	values.Set("f", "json")
 	return []byte(values.Encode())
+}
+
+func (application *application) setEnv(env *environment) {
+	application.env = env
 }

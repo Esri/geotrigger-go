@@ -8,6 +8,7 @@ type device struct {
 	tokenManager
 	clientID string
 	deviceID string
+	env      *environment
 }
 
 /* Device JSON structs */
@@ -32,7 +33,7 @@ type deviceRefreshResponse struct {
 }
 
 func (device *device) request(route string, params map[string]interface{}, responseJSON interface{}) error {
-	return geotriggerPost(device, route, params, responseJSON)
+	return geotriggerPost(device.env, device, route, params, responseJSON)
 }
 
 func (device *device) info() map[string]string {
@@ -47,13 +48,10 @@ func (device *device) info() map[string]string {
 func newDevice(clientID string) (session, error) {
 	device := &device{
 		clientID: clientID,
+		env:      defEnv,
 	}
 
-	if err := device.register(); err != nil {
-		return nil, err
-	}
-
-	return device, nil
+	return device, device.register()
 }
 
 func (device *device) register() error {
@@ -64,7 +62,7 @@ func (device *device) register() error {
 
 	// make request
 	var deviceRegisterResponse deviceRegisterResponse
-	if err := agoPost(ago_register_route, []byte(values.Encode()), &deviceRegisterResponse); err != nil {
+	if err := agoPost(device.env, ago_register_route, []byte(values.Encode()), &deviceRegisterResponse); err != nil {
 		return err
 	}
 
@@ -84,7 +82,7 @@ func (device *device) refresh(refreshToken string) error {
 
 	// make request
 	var refreshResponse deviceRefreshResponse
-	if err := agoPost(ago_token_route, []byte(values.Encode()), &refreshResponse); err != nil {
+	if err := agoPost(device.env, ago_token_route, []byte(values.Encode()), &refreshResponse); err != nil {
 		return err
 	}
 
@@ -93,4 +91,8 @@ func (device *device) refresh(refreshToken string) error {
 	device.setExpiresAt(refreshResponse.ExpiresIn)
 
 	return nil
+}
+
+func (device *device) setEnv(env *environment) {
+	device.env = env
 }
