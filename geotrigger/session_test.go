@@ -139,3 +139,9 @@ func TestParseJSONResponse(t *testing.T) {
 	test.Expect(t, notAPointer2, nil)
 	test.Expect(t, err.Error(), "Provided responseJSON interface should be a pointer (to struct or map).")
 }
+
+func TestRouteConcat(t *testing.T) {
+	expectedOutput := "derp.com/horse/pants"
+	test.Expect(t, routeConcat("derp.com", "horse/pants"), expectedOutput)
+	test.Expect(t, routeConcat("derp.com", "/horse/pants"), expectedOutput)
+}
