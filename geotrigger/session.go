@@ -197,7 +197,8 @@ func errorCheck(resp []byte) *errorResponse {
 		return nil
 	}
 
-	if errorContainer.Error.Code > 0 && len(errorContainer.Error.Message) > 0 {
+	// We don't inspect the value of `Error.Code` here because the server may not return a code value
+	if len(errorContainer.Error.Message) > 0 {
 		return &errorContainer
 	}
 
