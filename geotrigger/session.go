@@ -8,19 +8,21 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-)
-
-// The following are vars so that they can be changed by tests
-var (
-	geotrigger_base_url = "https://geotrigger.arcgis.com"
-	ago_base_url        = "https://www.arcgis.com"
+	"reflect"
 )
 
 const (
-	ago_token_route    = "/sharing/oauth2/token"
-	ago_register_route = "/sharing/oauth2/registerDevice"
-	version            = "0.1.0"
+	geotrigger_base_url = "https://geotrigger.arcgis.com"
+	ago_base_url        = "https://www.arcgis.com"
+	ago_token_route     = "/sharing/oauth2/token"
+	ago_register_route  = "/sharing/oauth2/registerDevice"
+	version             = "1.0.0"
 )
+
+var defEnv = &environment{
+	geotrigger_base_url,
+	ago_base_url,
+}
 
 // The Session interface obfuscates whether we are a device or an application,
 // both of which implement the interface slightly differently.
@@ -31,6 +33,13 @@ type session interface {
 	tokenManager
 	// used internally when token expires
 	refresh(string) error
+	// used internally for changing URLs at runtime for testing
+	setEnv(*environment)
+}
+
+type environment struct {
+	geotriggerURL string
+	agoURL        string
 }
 
 type errorResponse struct {
@@ -62,7 +71,8 @@ func doRefresh(session session, token string) (string, error) {
 	return accessToken, error
 }
 
-func geotriggerPost(session session, route string, params map[string]interface{}, responseJSON interface{}) error {
+func geotriggerPost(env *environment, session session, route string, params map[string]interface{},
+	responseJSON interface{}) error {
 	body, err := json.Marshal(params)
 	if err != nil {
 		return fmt.Errorf("Error while marshaling params into JSON for route: %s. %s", route, err)
@@ -104,7 +114,7 @@ func geotriggerPost(session session, route string, params map[string]interface{}
 			route, err)
 	}
 
-	req, err := http.NewRequest("POST", geotrigger_base_url+route, bytes.NewReader(body))
+	req, err := http.NewRequest("POST", routeConcat(env.geotriggerURL, route), bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("Error creating GeotriggerPost for route %s. %s", route, err)
 	}
@@ -117,8 +127,8 @@ func geotriggerPost(session session, route string, params map[string]interface{}
 	return post(req, body, responseJSON, refreshFunc)
 }
 
-func agoPost(route string, body []byte, responseJSON interface{}) error {
-	req, err := http.NewRequest("POST", ago_base_url+route, bytes.NewReader(body))
+func agoPost(env *environment, route string, body []byte, responseJSON interface{}) error {
+	req, err := http.NewRequest("POST", routeConcat(env.agoURL, route), bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("Error creating AgoPost for route %s. %s", route, err)
 	}
@@ -175,4 +185,51 @@ func post(req *http.Request, body []byte, responseJSON interface{}, refreshFunc 
 	}
 
 	return parseJSONResponse(contents, responseJSON)
+}
+
+func errorCheck(resp []byte) *errorResponse {
+	var errorContainer errorResponse
+	if err := json.Unmarshal(resp, &errorContainer); err != nil {
+		// Don't return an error here, as it is possible for the response
+		// to not be parsed into an errorResponse, causing an error to be thrown, but still
+		// be valid, ie: the root element of the response is an array.
+		// We are just looking to see if we can spot a known server error anyway.
+		return nil
+	}
+
+	if errorContainer.Error.Code > 0 && len(errorContainer.Error.Message) > 0 {
+		return &errorContainer
+	}
+
+	return nil
+}
+
+func parseJSONResponse(resp []byte, responseJSON interface{}) error {
+	t := reflect.TypeOf(responseJSON)
+	if t == nil || t.Kind() != reflect.Ptr {
+		return fmt.Errorf("Provided responseJSON interface should be a pointer (to struct or map).")
+	}
+
+	if err := json.Unmarshal(resp, responseJSON); err != nil {
+		return fmt.Errorf("Error parsing response: %s  Error: %s", string(resp), err)
+	}
+
+	return nil
+}
+
+func routeConcat(baseURL, route string) string {
+	var buffer bytes.Buffer
+	buffer.WriteString(baseURL)
+
+	if route[:1] != "/" {
+		buffer.WriteString("/")
+	}
+
+	buffer.WriteString(route)
+
+	return buffer.String()
+}
+
+func testEnv(gtURL, agoURL string) *environment {
+	return &environment{gtURL, agoURL}
 }
