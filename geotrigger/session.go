@@ -27,7 +27,7 @@ var defEnv = &environment{
 // The Session interface obfuscates whether we are a device or an application,
 // both of which implement the interface slightly differently.
 type session interface {
-	request(string, map[string]interface{}, interface{}) error
+	request(string, interface{}, interface{}) error
 	info() map[string]string
 	// A session is also a TokenManager
 	tokenManager
@@ -71,7 +71,7 @@ func doRefresh(session session, token string) (string, error) {
 	return accessToken, error
 }
 
-func geotriggerPost(env *environment, session session, route string, params map[string]interface{},
+func geotriggerPost(env *environment, session session, route string, params interface{},
 	responseJSON interface{}) error {
 	body, err := json.Marshal(params)
 	if err != nil {

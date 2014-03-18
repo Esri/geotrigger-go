@@ -16,7 +16,7 @@ type applicationTokenResponse struct {
 	ExpiresIn   int64  `json:"expires_in"`
 }
 
-func (application *application) request(route string, params map[string]interface{}, responseJSON interface{}) error {
+func (application *application) request(route string, params interface{}, responseJSON interface{}) error {
 	return geotriggerPost(application.env, application, route, params, responseJSON)
 }
 

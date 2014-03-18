@@ -51,7 +51,7 @@ func ExistingDevice(clientID string, deviceID string, accessToken string, expire
 // arbitrary JSON map (`map[string]interface{}`) that can then be used with the
 // helper methods `GetValueFromJSONObject` and `GetValueFromJSONArray` provided
 // in the `github.com/Esri/geotrigger-go/geotrigger/json` package.
-func (client *Client) Request(route string, params map[string]interface{}, response interface{}) error {
+func (client *Client) Request(route string, params interface{}, response interface{}) error {
 	return client.request(route, params, response)
 }
 

@@ -75,7 +75,7 @@ If this is a device session, the following keys will be present: `access_token`,
 
 ### func (\*Client) Request
 ``` go
-func (client *Client) Request(route string, params map[string]interface{}, response interface{}) error
+func (client *Client) Request(route string, params interface{}, response interface{}) error
 ```
 Request performs API requests given an endpoint route and parameters.
 

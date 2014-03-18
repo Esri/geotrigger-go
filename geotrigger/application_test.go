@@ -290,6 +290,10 @@ func getValidApplicationClient(t *testing.T) *Client {
 	return &Client{application}
 }
 
+type TriggerListTest struct {
+	Tags string `json:"tags"`
+}
+
 // A big ugly func that gets called many times for tests. Separated out to avoid duplicating it.
 func testConcurrentRefresh(t *testing.T, client *Client, grantType string, clientSecret string,
 	refreshToken string, pauseAfterFirstReq bool, errorOnFirstRefresh bool) (int, int) {
@@ -361,16 +365,16 @@ func testConcurrentRefresh(t *testing.T, client *Client, grantType string, clien
 		"tags": "derp",
 	}
 	var responseJSON1 map[string]interface{}
-	params2 := map[string]interface{}{
-		"tags": "derp",
+	params2 := &TriggerListTest{
+		"derp",
 	}
 	var responseJSON2 map[string]interface{}
 	params3 := map[string]interface{}{
 		"tags": "derp",
 	}
 	var responseJSON3 map[string]interface{}
-	params4 := map[string]interface{}{
-		"tags": "derp",
+	params4 := &TriggerListTest{
+		"derp",
 	}
 	var responseJSON4 map[string]interface{}
 

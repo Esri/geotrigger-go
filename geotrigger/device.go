@@ -32,7 +32,7 @@ type deviceRefreshResponse struct {
 	ExpiresIn   int64  `json:"expires_in"`
 }
 
-func (device *device) request(route string, params map[string]interface{}, responseJSON interface{}) error {
+func (device *device) request(route string, params interface{}, responseJSON interface{}) error {
 	return geotriggerPost(device.env, device, route, params, responseJSON)
 }
 
