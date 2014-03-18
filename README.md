@@ -81,7 +81,8 @@ Request performs API requests given an endpoint route and parameters.
 
 `response` can be a pointer to a struct modeling the expected JSON, or to an
 arbitrary JSON map (`map[string]interface{}`) that can then be used with the
-helper methods `GetValueFromJSONObject` and `GetValueFromJSONArray`.
+helper methods `GetValueFromJSONObject` and `GetValueFromJSONArray` provided
+in the `github.com/Esri/geotrigger-go/geotrigger/json` package.
 
 
 
