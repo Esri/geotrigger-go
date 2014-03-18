@@ -1,6 +1,6 @@
 
 # geotrigger
-    import "github.com/Esri/go-geotrigger/geotrigger"
+    import "github.com/Esri/geotrigger-go/geotrigger"
 
 Package `geotrigger` provides API access to the Geotrigger Service,
 a cloud based system of geofencing and push notifications. The library
@@ -15,30 +15,6 @@ For more information about the Geotrigger Service, please see:
 
 
 
-
-
-## func GetValueFromJSONArray
-``` go
-func GetValueFromJSONArray(jsonArray []interface{}, index int, value interface{}) error
-```
-GetValueFromJSONArray is a helper function for unpacking values out of
-arbitrary JSON arrays. `value` should be a pointer to a value of the type you
-expect to retrieve. Inner objects are of type `map[string]interface{}`. Inner
-arrays are of type `[]interface{}`. You can pass down a pointer to an
-`interface{}`, but then you are really better off not using these helpers, as
-they use reflection to try and match types.
-
-
-## func GetValueFromJSONObject
-``` go
-func GetValueFromJSONObject(jsonObject map[string]interface{}, key string, value interface{}) error
-```
-GetValueFromJSONObject is a helper function for unpacking values out of
-arbitrary JSON objects. `value` should be a pointer to a value of the type
-you expect to retrieve. Inner objects are of type `map[string]interface{}`.
-Inner arrays are of type `[]interface{}`. You can pass down a pointer to an
-`interface{}`, but then you are really better off not using these helpers, as
-they use reflection to try and match types.
 
 
 
@@ -106,8 +82,6 @@ Request performs API requests given an endpoint route and parameters.
 `response` can be a pointer to a struct modeling the expected JSON, or to an
 arbitrary JSON map (`map[string]interface{}`) that can then be used with the
 helper methods `GetValueFromJSONObject` and `GetValueFromJSONArray`.
-
-`route` must start with a slash.
 
 
 
