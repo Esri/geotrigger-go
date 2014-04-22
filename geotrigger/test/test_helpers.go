@@ -12,7 +12,7 @@ func MustBeNil(t *testing.T, a interface{}) {
 	tp := reflect.TypeOf(a)
 
 	if tp != nil && (!IsNillable(tp.Kind()) || !reflect.ValueOf(a).IsNil()) {
-		t.Errorf("Expected %v (type %v) to be nil", a, tp)
+		t.Errorf("Got nil, but expected %v (type %v)", a, tp)
 	}
 }
 
@@ -20,7 +20,7 @@ func MustNotBeNil(t *testing.T, a interface{}) {
 	tp := reflect.TypeOf(a)
 
 	if tp == nil || (IsNillable(tp.Kind()) && reflect.ValueOf(a).IsNil()) {
-		t.Errorf("Expected %v (type %v) to not be nil", a, tp)
+		t.Errorf("Got nil and did not expect nil.")
 	}
 }
 
@@ -98,20 +98,30 @@ func Patch(destination, v interface{}) (Restorer, error) {
 	}, nil
 }
 
-// https://github.com/codegangsta/martini/blob/master/martini_test.go
-// thanks codegangsta for these lil guys ;)
+// Warning: directly comparing functions is unreliable
 func Expect(t *testing.T, a interface{}, b interface{}) {
+	btype := reflect.TypeOf(b)
 	if b == nil {
 		MustBeNil(t, a)
-	} else if a != b {
+	} else if btype.Kind() == reflect.Func {
+		if reflect.ValueOf(a).Pointer() != reflect.ValueOf(b).Pointer() {
+			t.Errorf("Expected func %v (type %v) to equal func %v (type %v).", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
+		}
+	} else if !reflect.DeepEqual(a, b) {
 		t.Errorf("Expected %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
 	}
 }
 
+// Warning: directly comparing functions is unreliable
 func Refute(t *testing.T, a interface{}, b interface{}) {
+	btype := reflect.TypeOf(b)
 	if b == nil {
 		MustNotBeNil(t, a)
-	} else if a == b {
+	} else if btype.Kind() == reflect.Func {
+		if reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer() {
+			t.Errorf("Expected func %v (type %v) to not equal func %v (type %v).", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
+		}
+	} else if reflect.DeepEqual(a, b) {
 		t.Errorf("Did not expect %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
 	}
 }
