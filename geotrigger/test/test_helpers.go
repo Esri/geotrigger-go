@@ -12,7 +12,7 @@ func MustBeNil(t *testing.T, a interface{}) {
 	tp := reflect.TypeOf(a)
 
 	if tp != nil && (!IsNillable(tp.Kind()) || !reflect.ValueOf(a).IsNil()) {
-		t.Errorf("Got nil, but expected %v (type %v)", a, tp)
+		t.Errorf("Expected nil, but got %v (type %v)", a, tp)
 	}
 }
 
@@ -20,7 +20,7 @@ func MustNotBeNil(t *testing.T, a interface{}) {
 	tp := reflect.TypeOf(a)
 
 	if tp == nil || (IsNillable(tp.Kind()) && reflect.ValueOf(a).IsNil()) {
-		t.Errorf("Got nil and did not expect nil.")
+		t.Errorf("Expected not nil, but got %v (type %v)", a, tp)
 	}
 }
 
